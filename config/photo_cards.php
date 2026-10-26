@@ -44,6 +44,24 @@ return [
         'dark' => ['background' => '#0B1220', 'text' => '#FFFFFF', 'muted' => '#CBD5E1'],
     ],
 
+    // The photo fills the bottom 60% of the card and fades into the top.
+    'background_ratio' => 0.6,
+
+    // Where a card background comes from when the post has no photo of its
+    // own, in order: ai (Cloudflare Workers AI, then Pollinations), link (the
+    // source page's preview image), pexels (needs a Pexels key).
+    'background_sources' => ['ai', 'link', 'pexels'],
+
+    // Added to every AI background prompt.
+    'image_prompt_suffix' => 'no text, no letters, no watermark, no logos, main subject in the lower half, calm uncluttered upper area',
+
+    // Corner label per background source; ai and the post's own photo use
+    // the brand's image label.
+    'background_labels' => [
+        'link' => 'সংগৃহীত ছবি',
+        'pexels' => 'ছবি: Pexels',
+    ],
+
     'brand_defaults' => [
         'primary_color' => '#0E7490',
         'font' => 'hind-siliguri',

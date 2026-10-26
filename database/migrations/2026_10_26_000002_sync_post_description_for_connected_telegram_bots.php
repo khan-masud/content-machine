@@ -6,8 +6,8 @@ use Illuminate\Database\Migrations\Migration;
 return new class extends Migration
 {
     /**
-     * The /post menu description now mentions the optional category.
-     * Re-sync already-connected bots so their slash menu shows it.
+     * The /post menu description now mentions the optional category, and
+     * /recard is new. Re-sync already-connected bots so their menu shows it.
      */
     public function up(): void
     {

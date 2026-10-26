@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Contracts\ImageGenerator;
 use App\Contracts\PexelsProvider;
+use App\Contracts\PexelsProviderFactory;
 use App\Contracts\PhotoCardRenderer;
 use App\Support\AiProviders\AiCompletionClientContract;
 use App\Support\AiProviders\AiProviderVerifierContract;
@@ -13,10 +15,18 @@ use App\Support\AiProviders\HttpAiProviderVerifier;
 use App\Support\AiProviders\OpenAiTranscriptionClient;
 use App\Support\CurrentApiToken;
 use App\Support\CurrentWorkspace;
+use App\Support\ImageAi\CloudflareImageGenerator;
+use App\Support\ImageAi\ImageGeneratorChain;
+use App\Support\ImageAi\PollinationsImageGenerator;
 use App\Support\LinkResolution\LinkResolverContract;
 use App\Support\LinkResolution\ProcessLinkResolver;
 use App\Support\Pexels\HttpPexelsProvider;
+use App\Support\Pexels\HttpPexelsProviderFactory;
 use App\Support\Pexels\PexelsConfig;
+use App\Support\PhotoCards\Backgrounds\AiCardBackgroundSource;
+use App\Support\PhotoCards\Backgrounds\CardBackgroundSources;
+use App\Support\PhotoCards\Backgrounds\LinkCardBackgroundSource;
+use App\Support\PhotoCards\Backgrounds\PexelsCardBackgroundSource;
 use App\Support\PhotoCards\PillowPhotoCardRenderer;
 use App\Support\Telegram\HttpTelegramClient;
 use App\Support\Telegram\TelegramClientContract;
@@ -46,6 +56,16 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(TelegramClientContract::class, HttpTelegramClient::class);
         $this->app->bind(TelegramPhotoSenderContract::class, HttpTelegramClient::class);
         $this->app->bind(PhotoCardRenderer::class, PillowPhotoCardRenderer::class);
+        $this->app->bind(PexelsProviderFactory::class, HttpPexelsProviderFactory::class);
+        $this->app->bind(ImageGenerator::class, fn ($app): ImageGenerator => new ImageGeneratorChain([
+            $app->make(CloudflareImageGenerator::class),
+            $app->make(PollinationsImageGenerator::class),
+        ]));
+        $this->app->bind(CardBackgroundSources::class, fn ($app): CardBackgroundSources => new CardBackgroundSources([
+            'ai' => $app->make(AiCardBackgroundSource::class),
+            'link' => $app->make(LinkCardBackgroundSource::class),
+            'pexels' => $app->make(PexelsCardBackgroundSource::class),
+        ]));
         $this->app->bind(PexelsProvider::class, function ($app): PexelsProvider {
             $workspace = $app->make(CurrentWorkspace::class)->get();
             abort_if($workspace === null, 404, 'No current workspace.');

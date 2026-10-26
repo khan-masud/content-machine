@@ -156,6 +156,10 @@ const mainNavItems: NavItem[] = [
                 href: '/settings/pexels',
             },
             {
+                title: 'Image AI',
+                href: '/settings/image-ai',
+            },
+            {
                 title: 'AI Models',
                 href: aiProvidersIndex(),
             },

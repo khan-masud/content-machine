@@ -11,7 +11,9 @@
 | draft under sarcasm. `tone` is the writing guidance handed to the AI model
 | when it drafts a post in that category. `theme` (light/dark) and `accent`
 | are the photo-card defaults; a workspace can override them under
-| Settings → Brand.
+| Settings → Brand. `image_style` is added to AI background prompts, and
+| `image_sources` (optional) overrides the order backgrounds are looked for
+| in (see config/photo_cards.php `background_sources`).
 |
 */
 
@@ -24,6 +26,7 @@ return [
             'tone' => 'Timely news update. Lead with what happened, when, and who is involved. Neutral, factual, and short. Name the source.',
             'theme' => 'light',
             'accent' => '#0E7490',
+            'image_style' => 'realistic news photograph style',
         ],
         'politics' => [
             'label' => 'Politics',
@@ -32,6 +35,9 @@ return [
             'tone' => 'Political news or commentary. Stay factual and balanced, attribute every claim to its source, and avoid insults, rumours, or calls to action. Never invent quotes.',
             'theme' => 'light',
             'accent' => '#DC2626',
+            'image_style' => 'symbolic editorial photo, objects and places only, no identifiable people',
+            // Real photos first: AI images of politicians read as fakes.
+            'image_sources' => ['link', 'pexels', 'ai'],
         ],
         'analysis' => [
             'label' => 'Analysis',
@@ -40,6 +46,7 @@ return [
             'tone' => 'Explain why it matters. Break the topic into a few clear points with context, numbers from the source, and a short takeaway. Calm and thoughtful.',
             'theme' => 'light',
             'accent' => '#4338CA',
+            'image_style' => 'clean symbolic editorial illustration',
         ],
         'funny' => [
             'label' => 'Funny',
@@ -48,6 +55,7 @@ return [
             'tone' => 'Light-hearted and playful. Find the everyday humour in the topic with a short punchline. Never mock individuals for who they are.',
             'theme' => 'light',
             'accent' => '#F97316',
+            'image_style' => 'playful, exaggerated, colourful comedic scene',
         ],
         'sarcasm' => [
             'label' => 'Sarcasm',
@@ -56,6 +64,7 @@ return [
             'tone' => 'Dry, witty sarcasm aimed at the situation or policy, not at private individuals. Keep it short and clever, and keep the underlying facts accurate.',
             'theme' => 'dark',
             'accent' => '#FACC15',
+            'image_style' => 'surreal satirical concept art, cinematic',
         ],
         'techy' => [
             'label' => 'Techy',
@@ -64,6 +73,7 @@ return [
             'tone' => 'Technology explained simply. Say what it is, why it matters to ordinary readers, and avoid jargon unless you explain it.',
             'theme' => 'dark',
             'accent' => '#22D3EE',
+            'image_style' => 'clean modern technology scene, cool tones',
         ],
     ],
 ];

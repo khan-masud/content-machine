@@ -98,9 +98,13 @@ def render(spec):
     background = spec.get("background_path")
     image_top = height
     if background:
-        image_height = round(height * 0.6)
+        image_height = spec.get("background_height") or round(height * 0.6)
         image_top = height - image_height
-        scene = cover(Image.open(background).convert("RGB"), width, image_height)
+        source = Image.open(background)
+        # Decode large JPEGs at reduced scale: keeps a 6000px photo from
+        # costing hundreds of MB on a small server.
+        source.draft("RGB", (width * 2, image_height * 2))
+        scene = cover(source.convert("RGB"), width, image_height)
         fade = round(image_height * 0.4)
         mask = Image.new("L", (width, image_height), 255)
         mask_draw = ImageDraw.Draw(mask)

@@ -25,6 +25,7 @@ final readonly class PhotoCardData
         public array $fonts,
         public int $width,
         public int $height,
+        public int $backgroundHeight,
     ) {}
 
     /**
@@ -37,6 +38,7 @@ final readonly class PhotoCardData
         return [
             'width' => $this->width,
             'height' => $this->height,
+            'background_height' => $this->backgroundHeight,
             'headline' => $this->headline,
             'source' => $this->source,
             'brand_name' => $this->brandName,

@@ -17,6 +17,7 @@ use App\Actions\Telegram\ResolveTelegramIntentAction;
 use App\Actions\Telegram\ResolveTelegramWorkspaceActionAction;
 use App\Jobs\GenerateTelegramPostJob;
 use App\Jobs\PublishPostJob;
+use App\Jobs\RenderPostPhotoCardJob;
 use App\Jobs\ResolveScratchpadLinkJob;
 use App\Models\AiProviderCredential;
 use App\Models\Idea;
@@ -991,6 +992,50 @@ class HandleTelegramUpdateActionTest extends TestCase
         $this->assertSame('approved', $post->refresh()->approval_state);
         $this->assertSame(TelegramPostRequest::APPROVED, $request->refresh()->state);
         $this->assertStringContainsString('approved', $this->lastReply());
+    }
+
+    public function test_recard_queues_a_new_background_and_card(): void
+    {
+        Queue::fake();
+        $config = TelegramBotConfig::factory()->connected()->create();
+        $user = User::factory()->create();
+        TelegramBotLink::factory()->create([
+            'telegram_bot_config_id' => $config->id,
+            'user_id' => $user->id,
+            'telegram_user_id' => 1,
+        ]);
+        $post = Post::factory()->create(['workspace_id' => $config->workspace_id]);
+        TelegramPostRequest::factory()->create([
+            'workspace_id' => $config->workspace_id,
+            'telegram_bot_config_id' => $config->id,
+            'post_id' => $post->id,
+            'telegram_user_id' => 1,
+            'telegram_chat_id' => 555,
+            'state' => TelegramPostRequest::AWAITING_APPROVAL,
+        ]);
+
+        $this->action()->handle($config, $this->update(1, '/recard '.$post->human_id));
+
+        Queue::assertPushed(RenderPostPhotoCardJob::class, fn (RenderPostPhotoCardJob $job): bool => $job->postId === $post->id
+            && $job->refreshBackground
+            && $job->notifyTelegram);
+        $this->assertStringContainsString('new card for '.$post->human_id, $this->lastReply());
+    }
+
+    public function test_recard_without_a_draft_explains_how_to_use_it(): void
+    {
+        Queue::fake();
+        $config = TelegramBotConfig::factory()->connected()->create();
+        TelegramBotLink::factory()->create([
+            'telegram_bot_config_id' => $config->id,
+            'user_id' => User::factory()->create()->id,
+            'telegram_user_id' => 1,
+        ]);
+
+        $this->action()->handle($config, $this->update(1, '/recard'));
+
+        Queue::assertNotPushed(RenderPostPhotoCardJob::class);
+        $this->assertStringContainsString('/recard P-123', $this->lastReply());
     }
 
     public function test_an_explicit_post_id_cannot_approve_another_telegram_users_request(): void

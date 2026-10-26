@@ -446,17 +446,28 @@ class GenerateTelegramPostActionTest extends TestCase
         Queue::fake();
         $request = $this->generatingTextRequest();
         $completion = new FakePostCompletionClient($this->draftJson([
-            'card' => ['headline' => 'বিল বাড়ল, [[কারেন্ট গেল]]', 'source' => 'সোর্স: প্রথম আলো'],
+            'card' => [
+                'headline' => 'বিল বাড়ল, [[কারেন্ট গেল]]',
+                'source' => 'সোর্স: প্রথম আলো',
+                'image_prompt' => 'A dark Dhaka street during a power cut',
+                'image_query' => 'power outage city',
+            ],
         ]));
 
         $post = $this->generate($request, $completion);
 
         // jsonb does not keep key order.
         $this->assertEquals(
-            ['headline' => 'বিল বাড়ল, [[কারেন্ট গেল]]', 'source' => 'সোর্স: প্রথম আলো'],
+            [
+                'headline' => 'বিল বাড়ল, [[কারেন্ট গেল]]',
+                'source' => 'সোর্স: প্রথম আলো',
+                'image_prompt' => 'A dark Dhaka street during a power cut',
+                'image_query' => 'power outage city',
+            ],
             $post?->fresh()?->photo_card,
         );
         $this->assertStringContainsString('"card"', $completion->lastSystemPrompt);
+        $this->assertStringContainsString('Never depict', $completion->lastSystemPrompt);
         Queue::assertPushed(RenderPostPhotoCardJob::class, fn (RenderPostPhotoCardJob $job): bool => $job->postId === $post?->id);
     }
 
@@ -469,7 +480,7 @@ class GenerateTelegramPostActionTest extends TestCase
         $post = $this->generate($request, $completion);
 
         $this->assertInstanceOf(Post::class, $post);
-        $this->assertEquals(['headline' => null, 'source' => null], $post->fresh()?->photo_card);
+        $this->assertEquals(['headline' => null, 'source' => null, 'image_prompt' => null], $post->fresh()?->photo_card);
     }
 
     /**

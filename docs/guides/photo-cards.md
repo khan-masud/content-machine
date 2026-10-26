@@ -32,8 +32,44 @@ on the queue worker's `PATH`.
    or source and click **Render again**. A new card on an approved post needs
    approval again, because the card is what gets published.
 
-The background is the first image attached to the post (for example the photo
-sent with `/post`). Without one, the card is text only.
+## Backgrounds
+
+The post's own photo (for example the one sent with `/post`) always wins.
+Without one, `RenderPostPhotoCardJob` looks for a background in this order and
+keeps the first image it gets:
+
+| Source | What it is | Label |
+|---|---|---|
+| `ai` | AI image from the card's **background idea** (written in English by the AI with the draft, editable on the post page). Cloudflare Workers AI first, then Pollinations.ai. | Brand image label (e.g. প্রতীকী চিত্র) |
+| `link` | The preview image (og:image) of the link the draft came from. Downloaded only from public addresses, max 10 MB. | সংগৃহীত ছবি |
+| `pexels` | A Pexels stock photo for the card's search words. Needs a Pexels key (Settings → Pexels). | ছবি: Pexels |
+
+**Politics** uses `link → pexels → ai`, and AI prompts never ask for real,
+identifiable people: an AI picture of a politician reads as a fake. The order
+lives in `config/photo_cards.php` (`background_sources`) and per category in
+`config/post_categories.php` (`image_sources`).
+
+If no source returns an image, the card is text only. A provider error never
+fails the card.
+
+**New background:** the post page's **New background** button, or `/recard
+P-123` in Telegram, asks every source for a different image (a new AI seed, the
+next Pexels result) and renders the card again. Telegram gets the new card as a
+photo.
+
+## Settings → Image AI
+
+| Field | Notes |
+|---|---|
+| Cloudflare account ID | 32 characters, shown in the Cloudflare dashboard sidebar |
+| Cloudflare API token | Create one with the **Workers AI** template (read permission). Encrypted, never sent back. |
+| Use Pollinations.ai | On by default. No key; slower and rate limited. |
+
+Cloudflare's free plan includes a daily Workers AI allowance; cards use FLUX.1
+schnell (`@cf/black-forest-labs/flux-1-schnell`). Check Cloudflare's Workers AI
+pricing page for the current daily limit and terms. When the allowance runs
+out, cards fall back to Pollinations, then link and Pexels images. With Cloudflare off
+and Pollinations unchecked, only link and Pexels images are used.
 
 The PNG is stored as a workspace media asset and referenced from
 `posts.photo_card`, not attached to the post, so the PostSyncer publish path is

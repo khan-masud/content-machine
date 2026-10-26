@@ -15,6 +15,7 @@ use App\Support\Content\NormalizeCaptions;
 use App\Support\Content\PostWorkspaceBuckets;
 use App\Support\Content\PresenceFlags;
 use App\Support\Media\PostDesignTemplate;
+use App\Support\PhotoCards\PhotoCardComposer;
 use App\Support\Posts\PostCategories;
 use App\Support\Postsyncer\PostPublishPlanner;
 use App\Support\Postsyncer\PostsyncerClient;
@@ -203,7 +204,7 @@ class PostsController extends Controller
     }
 
     /**
-     * @return array{headline: ?string, source: ?string, image_url: ?string}
+     * @return array{headline: ?string, source: ?string, image_prompt: ?string, background: ?string, image_url: ?string}
      */
     private function presentPhotoCard(Post $post): array
     {
@@ -213,6 +214,8 @@ class PostsController extends Controller
         return [
             'headline' => is_string($card['headline'] ?? null) ? $card['headline'] : null,
             'source' => is_string($card['source'] ?? null) ? $card['source'] : null,
+            'image_prompt' => is_string($card['image_prompt'] ?? null) ? $card['image_prompt'] : null,
+            'background' => PhotoCardComposer::describeBackground($post),
             // The version query busts the browser cache after a re-render.
             'image_url' => $rendered
                 ? route('posts.card.show', $post).'?v='.md5((string) ($card['rendered_at'] ?? ''))

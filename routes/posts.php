@@ -16,6 +16,7 @@ Route::middleware(['auth', 'verified', SetCurrentWorkspace::class])
         Route::patch('posts/{post}', [PostsController::class, 'update'])->name('posts.update');
         Route::get('posts/{post}/card', [PostPhotoCardController::class, 'show'])->name('posts.card.show');
         Route::post('posts/{post}/card', [PostPhotoCardController::class, 'store'])->name('posts.card.store');
+        Route::post('posts/{post}/card/background', [PostPhotoCardController::class, 'background'])->name('posts.card.background');
         Route::post('posts/{post}/approve', ApprovePostController::class)->name('posts.approve');
         Route::post('posts/{post}/publish', PublishPostController::class)->name('posts.publish');
         Route::post('posts/{post}/reconcile', ReconcilePostPublishController::class)->name('posts.reconcile');

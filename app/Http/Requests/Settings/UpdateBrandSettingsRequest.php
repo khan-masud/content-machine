@@ -2,8 +2,7 @@
 
 namespace App\Http\Requests\Settings;
 
-use App\Models\User;
-use App\Models\Workspace;
+use App\Http\Requests\Concerns\AuthorizesWorkspaceAdmin;
 use App\Support\Brand\BrandConfig;
 use App\Support\Posts\PostCategories;
 use Illuminate\Foundation\Http\FormRequest;
@@ -11,18 +10,7 @@ use Illuminate\Validation\Rule;
 
 class UpdateBrandSettingsRequest extends FormRequest
 {
-    public function authorize(): bool
-    {
-        $user = $this->user();
-        $workspace = Workspace::current();
-        if (! $user instanceof User || $workspace === null) {
-            return false;
-        }
-
-        $member = $workspace->team->members()->whereKey($user->id)->first();
-
-        return in_array($member?->pivot->role, ['owner', 'admin'], true);
-    }
+    use AuthorizesWorkspaceAdmin;
 
     /** @return array<string, array<int, mixed>> */
     public function rules(): array

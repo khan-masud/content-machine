@@ -1,6 +1,6 @@
 import { Form, Link, router } from '@inertiajs/react';
 import { ArrowUpRight } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import PublishDialog from '@/components/content/publish-dialog';
 import TemplatePreview from '@/components/media/template-preview';
 import {
@@ -28,7 +28,9 @@ const DEFAULT_TIMEZONE = 'Asia/Dhaka';
 export type PostPhotoCard = {
     headline: string | null;
     source: string | null;
+    image_prompt: string | null;
     image_url: string | null;
+    background: string | null;
 };
 
 export type PostCategoryOption = {
@@ -299,6 +301,46 @@ export default function PostOverview({
     const awaitingApproval = approvalState === 'pending';
     const scheduledAt = earliestWhen(groups, effectiveTimezone);
 
+    const [waitingForCard, setWaitingForCard] = useState(false);
+    const cardUrl = photoCard?.image_url ?? null;
+
+    // A new background renders in the queue; reload until the card changes.
+    useEffect(() => {
+        if (!waitingForCard) {
+            return;
+        }
+
+        let tries = 0;
+        const timer = window.setInterval(() => {
+            tries += 1;
+            router.reload({ only: ['post'] });
+
+            if (tries >= 20) {
+                setWaitingForCard(false);
+            }
+        }, 3000);
+
+        return () => window.clearInterval(timer);
+    }, [waitingForCard]);
+
+    const [lastCardUrl, setLastCardUrl] = useState(cardUrl);
+
+    if (cardUrl !== lastCardUrl) {
+        setLastCardUrl(cardUrl);
+        setWaitingForCard(false);
+    }
+
+    function newBackground() {
+        router.post(
+            `/posts/${postId}/card/background`,
+            {},
+            {
+                preserveScroll: true,
+                onSuccess: () => setWaitingForCard(true),
+            },
+        );
+    }
+
     function changeCategory(nextCategory: string) {
         setBusy(true);
         router.patch(
@@ -425,6 +467,21 @@ export default function PostOverview({
                                         />
                                     </label>
                                     <label className="grid gap-1 text-sm">
+                                        <span>
+                                            Background idea (English, for AI
+                                            images)
+                                        </span>
+                                        <textarea
+                                            name="image_prompt"
+                                            rows={2}
+                                            defaultValue={
+                                                photoCard.image_prompt ?? ''
+                                            }
+                                            placeholder="A crowded Dhaka street at dusk with tangled power lines"
+                                            className="rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none"
+                                        />
+                                    </label>
+                                    <label className="grid gap-1 text-sm">
                                         <span>Source line</span>
                                         <input
                                             name="source"
@@ -444,15 +501,33 @@ export default function PostOverview({
                                                 errors.source}
                                         </p>
                                     )}
-                                    <button
-                                        type="submit"
-                                        className="advance justify-self-start"
-                                        disabled={processing}
-                                    >
-                                        {photoCard.image_url
-                                            ? 'Render again'
-                                            : 'Render card'}
-                                    </button>
+                                    <p className="text-xs text-muted-foreground">
+                                        Background:{' '}
+                                        {photoCard.background ?? 'none'}
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                        <button
+                                            type="submit"
+                                            className="advance"
+                                            disabled={processing}
+                                        >
+                                            {photoCard.image_url
+                                                ? 'Render again'
+                                                : 'Render card'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="advance"
+                                            disabled={
+                                                processing || waitingForCard
+                                            }
+                                            onClick={newBackground}
+                                        >
+                                            {waitingForCard
+                                                ? 'Finding a background…'
+                                                : 'New background'}
+                                        </button>
+                                    </div>
                                 </>
                             )}
                         </Form>

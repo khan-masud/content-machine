@@ -72,6 +72,24 @@ class PhotoCardComposerTest extends TestCase
         $this->assertSame('প্রতীকী চিত্র | Amar Page', $card->imageLabel);
     }
 
+    public function test_a_found_background_is_used_with_its_source_label(): void
+    {
+        Storage::fake('scratchpad');
+        $workspace = Workspace::factory()->create(['name' => 'Amar Page']);
+        Storage::disk('scratchpad')->put('1/bg.png', FakePhotoCardRenderer::png());
+        $media = MediaAsset::factory()->for($workspace)->create(['disk' => 'scratchpad', 'path' => '1/bg.png', 'mime' => 'image/png']);
+        $post = Post::factory()->for($workspace)->create([
+            'photo_card' => ['background_media_asset_id' => $media->id, 'background_source' => 'link'],
+        ]);
+
+        $card = (new PhotoCardComposer)->forPost($post);
+
+        $this->assertSame(Storage::disk('scratchpad')->path('1/bg.png'), $card->backgroundPath);
+        $this->assertSame('সংগৃহীত ছবি | Amar Page', $card->imageLabel);
+        $this->assertSame(810, $card->backgroundHeight);
+        $this->assertSame('the source link\'s preview image', PhotoCardComposer::describeBackground($post));
+    }
+
     public function test_dark_cards_prefer_the_dark_logo(): void
     {
         Storage::fake('scratchpad');

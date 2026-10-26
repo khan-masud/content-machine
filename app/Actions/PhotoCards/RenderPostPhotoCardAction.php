@@ -36,8 +36,7 @@ class RenderPostPhotoCardAction
     {
         $card = is_array($post->photo_card) ? $post->photo_card : [];
         if ($text !== null) {
-            $card['headline'] = $text->headline;
-            $card['source'] = $text->source;
+            $card = array_merge($card, $text->toCardFields());
         }
 
         $preview = clone $post;
@@ -53,7 +52,7 @@ class RenderPostPhotoCardAction
             file_put_contents($temporary, $png);
             $file = new UploadedFile($temporary, $post->human_id.'-card.png', 'image/png', null, true);
 
-            return DB::transaction(function () use ($post, $card, $file, $renderedBy): Post {
+            return DB::transaction(function () use ($post, $text, $file, $renderedBy): Post {
                 $lockedPost = Post::query()->whereKey($post->getKey())->lockForUpdate()->firstOrFail();
 
                 if ($lockedPost->isPublishInProgress() || $lockedPost->hasUncertainPublish()) {
@@ -68,15 +67,15 @@ class RenderPostPhotoCardAction
                 }
 
                 $media = $this->resolveMediaAsset($workspace, $renderedBy, $file, 'image', $lockedPost->human_id.'-card.png');
-                $previousId = is_array($lockedPost->photo_card) ? ($lockedPost->photo_card['media_asset_id'] ?? null) : null;
+                $stored = is_array($lockedPost->photo_card) ? $lockedPost->photo_card : [];
+                $previousId = $stored['media_asset_id'] ?? null;
 
+                // Keep fields this render did not touch (background, image prompt).
                 $lockedPost->forceFill([
-                    'photo_card' => [
-                        'headline' => $card['headline'] ?? null,
-                        'source' => $card['source'] ?? null,
+                    'photo_card' => array_merge($stored, $text?->toCardFields() ?? [], [
                         'media_asset_id' => $media->id,
                         'rendered_at' => now()->toIso8601String(),
-                    ],
+                    ]),
                 ])->save();
 
                 if ($previousId !== $media->id) {

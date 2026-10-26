@@ -31,13 +31,46 @@ class PhotoCardComposer
             ? trim($card['source'])
             : null;
 
+        $background = $this->background($post);
+
         return $this->compose(
             $workspace,
             $post->category,
             $headline,
             $source,
-            $this->backgroundPath($post),
+            $background['path'] ?? null,
+            $background['source'] ?? null,
         );
+    }
+
+    /**
+     * A short human description of where the card's background comes from.
+     */
+    public static function describeBackground(Post $post): ?string
+    {
+        if ($post->attachments()->where('role', 'image')->exists()) {
+            return 'the post\'s own photo';
+        }
+
+        $card = is_array($post->photo_card) ? $post->photo_card : [];
+        $meta = is_array($card['background_meta'] ?? null) ? $card['background_meta'] : [];
+
+        return match ($card['background_source'] ?? null) {
+            'ai' => 'AI image ('.(is_string($meta['generator'] ?? null) ? $meta['generator'] : 'generated').')',
+            'link' => 'the source link\'s preview image',
+            'pexels' => 'Pexels'.(is_string($meta['photographer'] ?? null) ? ' photo by '.$meta['photographer'] : ''),
+            default => null,
+        };
+    }
+
+    public static function backgroundWidth(): int
+    {
+        return (int) config('photo_cards.width');
+    }
+
+    public static function backgroundHeight(): int
+    {
+        return (int) round((int) config('photo_cards.height') * (float) config('photo_cards.background_ratio'));
     }
 
     public function sample(Workspace $workspace, ?string $category = null): PhotoCardData
@@ -57,6 +90,7 @@ class PhotoCardComposer
         string $headline,
         ?string $source,
         ?string $backgroundPath,
+        ?string $backgroundSource = null,
     ): PhotoCardData {
         $brand = BrandConfig::fromWorkspace($workspace);
         $style = $brand->categoryStyle($category);
@@ -74,7 +108,7 @@ class PhotoCardComposer
             website: $brand->website(),
             logoPath: $this->localPath($workspace, $logoId),
             backgroundPath: $backgroundPath,
-            imageLabel: $backgroundPath === null ? null : $brand->imageLabel().' | '.$brand->name(),
+            imageLabel: $backgroundPath === null ? null : $this->imageLabel($brand, $backgroundSource),
             colors: [
                 'background' => $theme['background'],
                 'text' => $theme['text'],
@@ -85,13 +119,17 @@ class PhotoCardComposer
             fonts: $this->fonts($brand->font()),
             width: (int) config('photo_cards.width'),
             height: (int) config('photo_cards.height'),
+            backgroundHeight: self::backgroundHeight(),
         );
     }
 
     /**
-     * The first image the post carries (e.g. the photo sent with /post).
+     * The post's own first image (e.g. the photo sent with /post), else the
+     * background found for its card (AI, link preview, or Pexels).
+     *
+     * @return array{path: string, source: ?string}|null
      */
-    private function backgroundPath(Post $post): ?string
+    private function background(Post $post): ?array
     {
         $post->loadMissing('attachments.mediaAsset');
 
@@ -99,11 +137,31 @@ class PhotoCardComposer
             $media = $attachment->mediaAsset;
 
             if ($attachment->role === 'image' && $media !== null && str_starts_with((string) $media->mime, 'image/')) {
-                return $this->readablePath($media);
+                $path = $this->readablePath($media);
+
+                return $path === null ? null : ['path' => $path, 'source' => null];
             }
         }
 
-        return null;
+        $card = is_array($post->photo_card) ? $post->photo_card : [];
+        $mediaId = $card['background_media_asset_id'] ?? null;
+        $workspace = $post->workspace;
+        $path = is_int($mediaId) && $workspace !== null ? $this->localPath($workspace, $mediaId) : null;
+
+        return $path === null ? null : [
+            'path' => $path,
+            'source' => is_string($card['background_source'] ?? null) ? $card['background_source'] : null,
+        ];
+    }
+
+    private function imageLabel(BrandConfig $brand, ?string $backgroundSource): string
+    {
+        $labels = (array) config('photo_cards.background_labels');
+        $label = $backgroundSource !== null && is_string($labels[$backgroundSource] ?? null)
+            ? $labels[$backgroundSource]
+            : $brand->imageLabel();
+
+        return $label.' | '.$brand->name();
     }
 
     private function localPath(Workspace $workspace, ?int $mediaAssetId): ?string

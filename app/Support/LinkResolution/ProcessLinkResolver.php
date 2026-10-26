@@ -2,9 +2,9 @@
 
 namespace App\Support\LinkResolution;
 
+use App\Concerns\ReadsBodyWithinLimit;
 use GuzzleHttp\Psr7\Uri;
 use GuzzleHttp\Psr7\UriResolver;
-use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
 use Throwable;
@@ -21,6 +21,8 @@ use Throwable;
  */
 final class ProcessLinkResolver implements LinkResolverContract
 {
+    use ReadsBodyWithinLimit;
+
     private const USER_AGENT = 'Mozilla/5.0 (compatible; content-machine/1.0; +https://cm.harun.dev)';
 
     private const MAX_REDIRECTS = 3;
@@ -259,39 +261,5 @@ final class ProcessLinkResolver implements LinkResolverContract
             'og:image' => self::MAX_IMAGE_URL_LENGTH,
             default => self::MAX_DESCRIPTION_LENGTH,
         };
-    }
-
-    private function readBodyWithinLimit(Response $response, int $maxBytes): ?string
-    {
-        try {
-            $stream = $response->toPsrResponse()->getBody();
-            $size = $stream->getSize();
-
-            if ($size !== null && $size > $maxBytes) {
-                return null;
-            }
-
-            $contents = '';
-            $length = 0;
-
-            while (! $stream->eof()) {
-                $chunk = $stream->read(min(8192, $maxBytes - $length + 1));
-
-                if ($chunk === '') {
-                    break;
-                }
-
-                $length += strlen($chunk);
-                if ($length > $maxBytes) {
-                    return null;
-                }
-
-                $contents .= $chunk;
-            }
-
-            return $contents;
-        } catch (Throwable) {
-            return null;
-        }
     }
 }

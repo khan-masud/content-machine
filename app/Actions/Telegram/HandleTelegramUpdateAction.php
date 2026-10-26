@@ -7,6 +7,7 @@ use App\Actions\Postsyncer\EnqueuePostPublishAction;
 use App\Actions\Scratchpad\CaptureTextNoteAction;
 use App\Actions\Scratchpad\DeleteRecentScratchpadEntriesAction;
 use App\Data\Scratchpad\CaptureTextNoteData;
+use App\Jobs\RenderPostPhotoCardJob;
 use App\Models\Post;
 use App\Models\ScratchpadEntry;
 use App\Models\TelegramBotConfig;
@@ -77,6 +78,7 @@ class HandleTelegramUpdateAction
         /note <text>: save a Scratch Pad note
         /post [category] <text>: create a draft, or send the next photo/voice/audio
         /approve P-123: approve a generated draft
+        /recard P-123: new background and photo card for a draft
         /post_now P-123 (or /post-now P-123): publish an approved draft now
         /schedule P-123 YYYY-MM-DD HH:MM: schedule an approved draft
         /cancel: cancel the pending draft request
@@ -496,6 +498,7 @@ class HandleTelegramUpdateAction
             '/note' => $this->handleNote($config, $chatId, $args, $telegramUpdateKey, $update, $dispatchLeaseId),
             '/post' => $this->handlePost($config, $link, $chatId, $fromUserId, $args, $update, $dispatchLeaseId),
             '/approve' => $this->handleApprove($config, $link, $chatId, $fromUserId, $args, $update, $dispatchLeaseId),
+            '/recard' => $this->handleRecard($config, $chatId, $fromUserId, $args, $update, $dispatchLeaseId),
             '/post_now' => $this->handlePostNow($config, $link, $chatId, $fromUserId, $args, $update, $dispatchLeaseId),
             '/schedule' => $this->handleSchedule($config, $link, $chatId, $fromUserId, $args, $update, $dispatchLeaseId),
             '/cancel' => $this->handleCancel($config, $chatId, $fromUserId, $args, $update, $dispatchLeaseId),
@@ -774,6 +777,44 @@ class HandleTelegramUpdateAction
 
             return;
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $update
+     */
+    private function handleRecard(
+        TelegramBotConfig $config,
+        int $chatId,
+        int $telegramUserId,
+        string $args,
+        array $update,
+        ?string $dispatchLeaseId = null,
+    ): void {
+        try {
+            $request = $this->postTarget($config, $chatId, $telegramUserId, $args, [
+                TelegramPostRequest::AWAITING_APPROVAL,
+                TelegramPostRequest::APPROVED,
+            ]);
+        } catch (RuntimeException $exception) {
+            $this->reply($config, $chatId, $exception->getMessage());
+
+            return;
+        }
+
+        if ($request === null || $request->post === null) {
+            $this->reply($config, $chatId, 'No draft found for a new card. Use /recard P-123.');
+
+            return;
+        }
+
+        if ($dispatchLeaseId !== null
+            && ! $this->ownsDispatchLease($config, $update, $dispatchLeaseId)) {
+            return;
+        }
+
+        RenderPostPhotoCardJob::dispatch($request->post->id, notifyTelegram: true, refreshBackground: true);
+
+        $this->reply($config, $chatId, "🎨 Making a new card for {$request->post->human_id}. It arrives here in a minute.");
     }
 
     /**

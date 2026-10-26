@@ -3,10 +3,12 @@
 namespace Tests\Feature\Posts;
 
 use App\Contracts\PhotoCardRenderer;
+use App\Jobs\RenderPostPhotoCardJob;
 use App\Models\Post;
 use App\Models\User;
 use App\Models\Workspace;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\Support\PhotoCards\FakePhotoCardRenderer;
@@ -49,6 +51,19 @@ class PostPhotoCardControllerTest extends TestCase
         $this->get(route('posts.card.show', $post))
             ->assertOk()
             ->assertHeader('Content-Type', 'image/png');
+    }
+
+    public function test_new_background_queues_a_refreshing_render(): void
+    {
+        Queue::fake();
+        $workspace = $this->actingAsOwner();
+        $post = Post::factory()->for($workspace)->create();
+
+        $this->post(route('posts.card.background', $post))->assertRedirect(route('posts.show', $post));
+
+        Queue::assertPushed(RenderPostPhotoCardJob::class, fn (RenderPostPhotoCardJob $job): bool => $job->postId === $post->id
+            && $job->refreshBackground
+            && ! $job->notifyTelegram);
     }
 
     public function test_a_render_error_comes_back_as_a_form_error(): void

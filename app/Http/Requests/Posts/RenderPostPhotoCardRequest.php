@@ -13,6 +13,7 @@ class RenderPostPhotoCardRequest extends FormRequest
         return [
             'headline' => ['nullable', 'string', 'max:'.PostPhotoCardTextData::HEADLINE_MAX],
             'source' => ['nullable', 'string', 'max:'.PostPhotoCardTextData::SOURCE_MAX],
+            'image_prompt' => ['nullable', 'string', 'max:'.PostPhotoCardTextData::IMAGE_PROMPT_MAX],
         ];
     }
 }

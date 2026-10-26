@@ -6,6 +6,7 @@ use App\Actions\PhotoCards\RenderPostPhotoCardAction;
 use App\Data\PhotoCards\PostPhotoCardTextData;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Posts\RenderPostPhotoCardRequest;
+use App\Jobs\RenderPostPhotoCardJob;
 use App\Models\MediaAsset;
 use App\Models\Post;
 use App\Models\User;
@@ -56,6 +57,21 @@ class PostPhotoCardController extends Controller
         }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Photo card rendered.')]);
+
+        return to_route('posts.show', $post);
+    }
+
+    /**
+     * Queue a new background (AI, link preview, or Pexels) and a re-render.
+     */
+    public function background(Request $request, Post $post): RedirectResponse
+    {
+        $workspace = $this->currentWorkspace();
+        abort_if($post->workspace_id !== $workspace->id, 404);
+
+        RenderPostPhotoCardJob::dispatch($post->id, notifyTelegram: false, refreshBackground: true);
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Finding a new background. The card updates in a moment.')]);
 
         return to_route('posts.show', $post);
     }

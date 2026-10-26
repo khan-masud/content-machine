@@ -28,7 +28,7 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
  * @property string|null $slug
  * @property string|null $template
  * @property string|null $category
- * @property array{headline?: string|null, source?: string|null, media_asset_id?: int|null, rendered_at?: string|null}|null $photo_card
+ * @property array<string, mixed>|null $photo_card photo card text, rendered card and background ids (see RenderPostPhotoCardAction)
  * @property string|null $body
  * @property array<string, mixed>|null $captions
  * @property array<string, mixed>|null $platforms

@@ -59,6 +59,25 @@ final class PostCategories
         return $category === null ? null : ['theme' => $category['theme'], 'accent' => $category['accent']];
     }
 
+    public static function imageStyle(string $key): ?string
+    {
+        $style = self::all()[$key]['image_style'] ?? null;
+
+        return is_string($style) && $style !== '' ? $style : null;
+    }
+
+    /**
+     * The category's own background source order, or null to use the default.
+     *
+     * @return list<string>|null
+     */
+    public static function imageSources(string $key): ?array
+    {
+        $sources = self::all()[$key]['image_sources'] ?? null;
+
+        return is_array($sources) ? $sources : null;
+    }
+
     /**
      * Category key for a word typed by a person (key or alias, any case).
      */
@@ -122,11 +141,11 @@ final class PostCategories
     }
 
     /**
-     * @return array<string, array{label: string, label_bn: string, aliases: list<string>, tone: string, theme: string, accent: string}>
+     * @return array<string, array{label: string, label_bn: string, aliases: list<string>, tone: string, theme: string, accent: string, image_style?: string, image_sources?: list<string>}>
      */
     private static function all(): array
     {
-        /** @var array<string, array{label: string, label_bn: string, aliases: list<string>, tone: string, theme: string, accent: string}> $categories */
+        /** @var array<string, array{label: string, label_bn: string, aliases: list<string>, tone: string, theme: string, accent: string, image_style?: string, image_sources?: list<string>}> $categories */
         $categories = config('post_categories.categories', []);
 
         return $categories;
