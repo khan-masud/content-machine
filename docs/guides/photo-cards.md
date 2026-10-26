@@ -52,6 +52,12 @@ lives in `config/photo_cards.php` (`background_sources`) and per category in
 If no source returns an image, the card is text only. A provider error never
 fails the card.
 
+**Your own headline:** `/card [category] <text>` in Telegram makes a card whose
+headline is exactly your text. The AI only wraps the accent words in `[[ ]]`,
+writes the background idea, and writes captions; if it changes your words, your
+text is used as written. Send `/card <text>` as a photo's caption to put the
+card on your own photo.
+
 **New background:** the post page's **New background** button, or `/recard
 P-123` in Telegram, asks every source for a different image (a new AI seed, the
 next Pexels result) and renders the card again. Telegram gets the new card as a

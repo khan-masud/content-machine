@@ -95,11 +95,17 @@ class GenerateTelegramPostAction
                 : 'The source did not contain any text to turn into a post.', $workLeaseId);
         }
 
+        $ownHeadline = $this->ownCardHeadline($request, $entry);
+
+        if ($ownHeadline !== null && mb_strlen($ownHeadline) > PostPhotoCardTextData::HEADLINE_MAX) {
+            return $this->fail($request, 'The card text is too long. Keep it under '.PostPhotoCardTextData::HEADLINE_MAX.' characters.', $workLeaseId);
+        }
+
         $languages = $this->generationLanguages($request);
 
         $result = $entry->kind === 'photo'
-            ? $this->completeFromPhoto($request, $sourceText, $languages, $workLeaseId)
-            : $this->completeFromText($request, $sourceText, $languages, $workLeaseId);
+            ? $this->completeFromPhoto($request, $sourceText, $languages, $workLeaseId, $ownHeadline)
+            : $this->completeFromText($request, $sourceText, $languages, $workLeaseId, $ownHeadline);
 
         if (! $result->successful || $result->text === null) {
             return $this->fail($request, 'I could not create the draft right now. Check the AI model settings and try again.', $workLeaseId);
@@ -116,6 +122,10 @@ class GenerateTelegramPostAction
 
         if ($draft === null) {
             return $this->fail($request, 'The AI returned an unusable draft. Please try generating it again.', $workLeaseId);
+        }
+
+        if ($ownHeadline !== null) {
+            $draft['card'] = $draft['card']->withOwnHeadline($ownHeadline);
         }
 
         $image = $this->sourceImage($entry);
@@ -197,6 +207,7 @@ class GenerateTelegramPostAction
         string $sourceText,
         array $languages,
         ?string $workLeaseId = null,
+        ?string $ownHeadline = null,
     ): AiCompletionResult {
         $userContent = "Source language hint: {$this->languageForRequest($request)}\n\nSource material:\n{$sourceText}";
 
@@ -205,7 +216,7 @@ class GenerateTelegramPostAction
                 return AiCompletionResult::failure('The Telegram post-generation lease expired.');
             }
 
-            $result = $this->completionClient->complete($model, $this->systemPrompt($languages, $request->category, $this->cardLanguage($request)), $userContent);
+            $result = $this->completionClient->complete($model, $this->systemPrompt($languages, $request->category, $this->cardLanguage($request), $ownHeadline), $userContent);
 
             if ($result->successful) {
                 return $result;
@@ -223,6 +234,7 @@ class GenerateTelegramPostAction
         string $sourceText,
         array $languages,
         ?string $workLeaseId = null,
+        ?string $ownHeadline = null,
     ): AiCompletionResult {
         $image = $this->sourceImage($request->sourceEntry);
 
@@ -245,7 +257,7 @@ class GenerateTelegramPostAction
 
             $result = $this->visionClient->completeWithImage(
                 $model,
-                $this->systemPrompt($languages, $request->category, $this->cardLanguage($request)),
+                $this->systemPrompt($languages, $request->category, $this->cardLanguage($request), $ownHeadline),
                 $userContent,
                 $image->mime,
                 $contents,
@@ -477,7 +489,7 @@ class GenerateTelegramPostAction
     /**
      * @param  list<string>  $languages
      */
-    private function systemPrompt(array $languages, ?string $category = null, string $cardLanguage = 'bn'): string
+    private function systemPrompt(array $languages, ?string $category = null, string $cardLanguage = 'bn', ?string $ownHeadline = null): string
     {
         $cardLanguageName = $cardLanguage === 'en' ? 'English' : 'Bangla (Bengali script)';
         $languageList = implode(', ', $languages);
@@ -520,7 +532,30 @@ class GenerateTelegramPostAction
             words.
             PROMPT;
 
-        return str_replace('__VARIANTS__', $variantShape, $prompt)."\n\n".$this->categoryPrompt($category);
+        return str_replace('__VARIANTS__', $variantShape, $prompt)."\n\n".$this->categoryPrompt($category)
+            .($ownHeadline === null ? '' : "\n\n".$this->ownHeadlinePrompt($ownHeadline));
+    }
+
+    private function ownHeadlinePrompt(string $headline): string
+    {
+        return 'The person wrote the card headline themselves: "'.$headline.'". Use it as "headline" '.
+            'word for word, only wrapping its 1-3 most important words in [[ ]]. Write "image_prompt", '.
+            '"image_query", the body, and the captions about that headline.';
+    }
+
+    /**
+     * /card text (or a photo's caption) is the headline as written; other
+     * sources, such as a link or a voice note, get an AI-written headline.
+     */
+    private function ownCardHeadline(TelegramPostRequest $request, ScratchpadEntry $entry): ?string
+    {
+        if ($request->mode !== TelegramPostRequest::MODE_CARD || ! in_array($entry->kind, ['text', 'photo'], true)) {
+            return null;
+        }
+
+        $text = trim((string) ($entry->body ?? ''));
+
+        return $text === '' ? null : $text;
     }
 
     private function categoryPrompt(?string $category): string

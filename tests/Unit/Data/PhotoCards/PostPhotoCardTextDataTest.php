@@ -26,4 +26,15 @@ class PostPhotoCardTextDataTest extends TestCase
         $this->assertNull($data->headline);
         $this->assertNull($data->source);
     }
+
+    public function test_own_headline_keeps_brackets_on_the_same_words_and_replaces_other_text(): void
+    {
+        $bracketed = PostPhotoCardTextData::fromArray(['headline' => 'বিল বাড়ল, [[কারেন্ট গেল]]', 'image_prompt' => 'A meter']);
+        $this->assertSame('বিল বাড়ল, [[কারেন্ট গেল]]', $bracketed->withOwnHeadline('বিল বাড়ল,  কারেন্ট গেল')->headline);
+
+        $rewritten = PostPhotoCardTextData::fromArray(['headline' => 'অন্য [[কথা]]', 'image_prompt' => 'A meter']);
+        $own = $rewritten->withOwnHeadline('বিল বাড়ল, কারেন্ট গেল');
+        $this->assertSame('বিল বাড়ল, কারেন্ট গেল', $own->headline);
+        $this->assertSame('A meter', $own->imagePrompt);
+    }
 }

@@ -463,6 +463,60 @@ class GenerateTelegramPostActionTest extends TestCase
         $this->assertStringContainsString('6-14 word line in English', $completion->lastSystemPrompt);
     }
 
+    public function test_card_mode_keeps_the_persons_headline_as_written(): void
+    {
+        Queue::fake();
+        $request = $this->generatingTextRequest(['mode' => TelegramPostRequest::MODE_CARD]);
+        $request->sourceEntry->update(['body' => 'বিদ্যুৎ বিল বাড়ল, কারেন্ট গেল']);
+        // The model rewrote the headline; the person's words win.
+        $completion = new FakePostCompletionClient($this->draftJson(['card' => [
+            'headline' => 'বিল নিয়ে [[হাহাকার]]',
+            'image_prompt' => 'An electricity meter at night',
+        ]]));
+
+        $post = $this->generate($request, $completion);
+
+        $this->assertSame('বিদ্যুৎ বিল বাড়ল, কারেন্ট গেল', $post?->photo_card['headline']);
+        $this->assertSame('An electricity meter at night', $post?->photo_card['image_prompt']);
+        $this->assertStringContainsString('The person wrote the card headline themselves: "বিদ্যুৎ বিল বাড়ল, কারেন্ট গেল"', $completion->lastSystemPrompt);
+    }
+
+    public function test_card_mode_keeps_the_models_accent_brackets_on_the_same_words(): void
+    {
+        Queue::fake();
+        $request = $this->generatingTextRequest(['mode' => TelegramPostRequest::MODE_CARD]);
+        $request->sourceEntry->update(['body' => 'বিদ্যুৎ বিল বাড়ল, কারেন্ট গেল']);
+        $completion = new FakePostCompletionClient($this->draftJson(['card' => ['headline' => 'বিদ্যুৎ বিল বাড়ল, [[কারেন্ট গেল]]']]));
+
+        $post = $this->generate($request, $completion);
+
+        $this->assertSame('বিদ্যুৎ বিল বাড়ল, [[কারেন্ট গেল]]', $post?->photo_card['headline']);
+    }
+
+    public function test_card_mode_rejects_a_headline_that_is_too_long(): void
+    {
+        Queue::fake();
+        $request = $this->generatingTextRequest(['mode' => TelegramPostRequest::MODE_CARD]);
+        $request->sourceEntry->update(['body' => str_repeat('অনেক লম্বা লেখা ', 30)]);
+        $completion = new FakePostCompletionClient($this->draftJson());
+
+        $this->assertNull($this->generate($request, $completion));
+        $this->assertSame(TelegramPostRequest::FAILED, $request->refresh()->state);
+        $this->assertStringContainsString('too long', (string) $request->error_message);
+    }
+
+    public function test_post_mode_lets_the_model_write_the_headline(): void
+    {
+        Queue::fake();
+        $request = $this->generatingTextRequest();
+        $completion = new FakePostCompletionClient($this->draftJson(['card' => ['headline' => 'বিল নিয়ে [[হাহাকার]]']]));
+
+        $post = $this->generate($request, $completion);
+
+        $this->assertSame('বিল নিয়ে [[হাহাকার]]', $post?->photo_card['headline']);
+        $this->assertStringNotContainsString('The person wrote the card headline', $completion->lastSystemPrompt);
+    }
+
     public function test_an_unknown_model_category_is_dropped_without_failing_the_draft(): void
     {
         Queue::fake();

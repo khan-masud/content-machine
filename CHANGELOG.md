@@ -9,6 +9,9 @@ once it reaches 1.0.
 ## [Unreleased]
 
 ### Added
+- Telegram `/card [category] <text>`: a photo card with your own headline,
+  word for word; the AI only adds accent words, a matching background, and
+  captions. As a photo caption, the photo becomes the background.
 - Settings → Brand → Card language (Bangla by default): the AI writes card
   headlines in it. Before, a workspace with English and Bangla enabled got
   English headlines.

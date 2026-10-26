@@ -67,6 +67,24 @@ final readonly class PostPhotoCardTextData
         ], $this->imageQuery !== null ? ['image_query' => $this->imageQuery] : []);
     }
 
+    /**
+     * The same card with the person's own headline: kept as the model wrote
+     * it when that is the same text with accent brackets added, else replaced
+     * by the text as written.
+     */
+    public function withOwnHeadline(string $headline): self
+    {
+        $own = self::clean($headline, self::HEADLINE_MAX);
+        $plain = self::clean(str_replace(['[[', ']]'], '', (string) $this->headline), self::HEADLINE_MAX);
+
+        return new self(
+            $own !== null && $plain === $own ? $this->headline : $own,
+            $this->source,
+            $this->imagePrompt,
+            $this->imageQuery,
+        );
+    }
+
     private static function clean(mixed $value, int $max): ?string
     {
         if (! is_string($value)) {

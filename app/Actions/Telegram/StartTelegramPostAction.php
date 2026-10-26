@@ -20,7 +20,8 @@ use Illuminate\Support\Facades\DB;
  * caption. Capture still lands in Scratch Pad first, preserving the original
  * source even when generation later fails. A leading category word
  * ("/post sarcasm https://...") is taken off the instruction and kept on the
- * request for generation.
+ * request for generation. /card starts the same flow in card mode, where the
+ * person's text becomes the card headline as written.
  */
 class StartTelegramPostAction
 {
@@ -39,6 +40,7 @@ class StartTelegramPostAction
         array $update,
         ?string $instruction = null,
         ?TelegramPostRequest $pendingRequest = null,
+        string $mode = TelegramPostRequest::MODE_POST,
     ): TelegramPostRequest {
         $message = $update['message'] ?? null;
         if (! is_array($message)
@@ -63,6 +65,7 @@ class StartTelegramPostAction
             $instruction,
             $category,
             $pendingRequest,
+            $mode,
         ): TelegramPostRequest {
             // Serialize one Telegram bot's post prompts. This prevents two
             // concurrent bare /post commands from stranding prompts or
@@ -187,6 +190,7 @@ class StartTelegramPostAction
                 'state' => TelegramPostRequest::AWAITING_INPUT,
                 'instruction' => null,
                 'category' => $category,
+                'mode' => $mode,
             ]);
 
             if ($entry === null) {
@@ -243,7 +247,7 @@ class StartTelegramPostAction
     }
 
     /**
-     * Remove the command itself before passing a bare `/post` (optionally
+     * Remove the command itself before passing a bare `/post` or `/card` (optionally
      * followed by just a category word) to the normal capture action. Media
      * messages keep their photo/audio payload while the command caption is
      * removed; a text-only command becomes an empty update and therefore
@@ -263,7 +267,7 @@ class StartTelegramPostAction
         $commandText = $message['text'] ?? $message['caption'] ?? null;
 
         if (! is_string($commandText)
-            || preg_match('/^\/post(?:@[A-Za-z0-9_]+)?(?:\s+(\S+))?$/iu', trim($commandText), $matches) !== 1
+            || preg_match('/^\/(?:post|card)(?:@[A-Za-z0-9_]+)?(?:\s+(\S+))?$/iu', trim($commandText), $matches) !== 1
             || (isset($matches[1]) && PostCategories::fromAlias($matches[1]) === null)
         ) {
             return $update;
