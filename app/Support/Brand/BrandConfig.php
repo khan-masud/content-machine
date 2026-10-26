@@ -14,6 +14,8 @@ final class BrandConfig
 {
     public const THEMES = ['light', 'dark'];
 
+    public const CARD_LANGUAGES = ['bn', 'en'];
+
     /** @param array<string, mixed> $data */
     private function __construct(
         private readonly array $data,
@@ -66,6 +68,16 @@ final class BrandConfig
     public function imageLabel(): string
     {
         return $this->string('image_label') ?? (string) config('photo_cards.brand_defaults.image_label');
+    }
+
+    /** The language the AI writes the card headline in. */
+    public function cardLanguage(): string
+    {
+        $language = $this->string('card_language');
+
+        return in_array($language, self::CARD_LANGUAGES, true)
+            ? $language
+            : (string) config('photo_cards.brand_defaults.card_language', 'bn');
     }
 
     /**

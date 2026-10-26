@@ -16,6 +16,7 @@ use App\Support\AiProviders\AiCompletionClientContract;
 use App\Support\AiProviders\AiCompletionResult;
 use App\Support\AiProviders\AiProviderCredentialResolver;
 use App\Support\AiProviders\AiVisionCompletionClientContract;
+use App\Support\Brand\BrandConfig;
 use App\Support\Posts\PostCategories;
 use App\Support\Postsyncer\PostsyncerConfig;
 use Illuminate\Support\Facades\DB;
@@ -204,7 +205,7 @@ class GenerateTelegramPostAction
                 return AiCompletionResult::failure('The Telegram post-generation lease expired.');
             }
 
-            $result = $this->completionClient->complete($model, $this->systemPrompt($languages, $request->category), $userContent);
+            $result = $this->completionClient->complete($model, $this->systemPrompt($languages, $request->category, $this->cardLanguage($request)), $userContent);
 
             if ($result->successful) {
                 return $result;
@@ -244,7 +245,7 @@ class GenerateTelegramPostAction
 
             $result = $this->visionClient->completeWithImage(
                 $model,
-                $this->systemPrompt($languages, $request->category),
+                $this->systemPrompt($languages, $request->category, $this->cardLanguage($request)),
                 $userContent,
                 $image->mime,
                 $contents,
@@ -476,8 +477,9 @@ class GenerateTelegramPostAction
     /**
      * @param  list<string>  $languages
      */
-    private function systemPrompt(array $languages, ?string $category = null): string
+    private function systemPrompt(array $languages, ?string $category = null, string $cardLanguage = 'bn'): string
     {
+        $cardLanguageName = $cardLanguage === 'en' ? 'English' : 'Bangla (Bengali script)';
         $languageList = implode(', ', $languages);
         $variantShape = implode(', ', array_map(
             fn (string $language): string => '"'.$language.'": {"body": string, "captions": {"facebook": {"caption": string, "first_comment": string}, "instagram": {"caption": string, "first_comment": string}}}',
@@ -503,7 +505,7 @@ class GenerateTelegramPostAction
             source.
 
             "card" is the text for a square social photo card. Write "headline"
-            as a punchy 6-14 word line in the first requested language, and wrap
+            as a punchy 6-14 word line in {$cardLanguageName}, and wrap
             the 1-3 most important words in double square brackets, for example
             "বিদ্যুৎ বিল বাড়ল, কিন্তু [[কারেন্ট গেল]] সন্ধ্যায়". Set "source" to
             "সোর্স: <publication>" (or "Source: <publication>" in English) when the
@@ -537,6 +539,16 @@ class GenerateTelegramPostAction
         return 'Choose the one category that fits the source best and set "category" to its key, '.
             "exactly as written below. Write the body and captions in that category's tone.\n".
             implode("\n", $lines);
+    }
+
+    /**
+     * The card headline follows an explicit language request in the message,
+     * else the workspace brand's card language.
+     */
+    private function cardLanguage(TelegramPostRequest $request): string
+    {
+        return $this->explicitlyRequestedLanguage($request->instruction)
+            ?? BrandConfig::fromWorkspace($request->workspace)->cardLanguage();
     }
 
     /**

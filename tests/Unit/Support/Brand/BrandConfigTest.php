@@ -21,6 +21,7 @@ class BrandConfigTest extends TestCase
         $this->assertSame('#0E7490', $brand->primaryColor());
         $this->assertSame('hind-siliguri', $brand->font());
         $this->assertSame('প্রতীকী চিত্র', $brand->imageLabel());
+        $this->assertSame('bn', $brand->cardLanguage());
         $this->assertSame(['theme' => 'dark', 'accent' => '#FACC15'], $brand->categoryStyle('sarcasm'));
         $this->assertSame(['theme' => 'light', 'accent' => '#0E7490'], $brand->categoryStyle(null));
     }
@@ -33,6 +34,7 @@ class BrandConfigTest extends TestCase
             'website' => 'brand.com',
             'primary_color' => '#112233',
             'font' => 'anek-bangla',
+            'card_language' => 'en',
             'categories' => ['sarcasm' => ['theme' => 'light', 'accent' => '#abcdef']],
         ]);
         $brand = BrandConfig::fromWorkspace($workspace->fresh());
@@ -41,6 +43,7 @@ class BrandConfigTest extends TestCase
         $this->assertSame('brand.com', $brand->website());
         $this->assertSame('#112233', $brand->primaryColor());
         $this->assertSame('anek-bangla', $brand->font());
+        $this->assertSame('en', $brand->cardLanguage());
         $this->assertSame(['theme' => 'light', 'accent' => '#ABCDEF'], $brand->categoryStyle('sarcasm'));
         $this->assertSame(['theme' => 'light', 'accent' => '#112233'], $brand->categoryStyle(null));
     }
@@ -51,12 +54,14 @@ class BrandConfigTest extends TestCase
         BrandConfig::write($workspace, [
             'primary_color' => 'red',
             'font' => 'comic-sans',
+            'card_language' => 'fr',
             'categories' => ['techy' => ['theme' => 'neon', 'accent' => 'blue']],
         ]);
         $brand = BrandConfig::fromWorkspace($workspace->fresh());
 
         $this->assertSame('#0E7490', $brand->primaryColor());
         $this->assertSame('hind-siliguri', $brand->font());
+        $this->assertSame('bn', $brand->cardLanguage());
         $this->assertSame(['theme' => 'dark', 'accent' => '#22D3EE'], $brand->categoryStyle('techy'));
     }
 }

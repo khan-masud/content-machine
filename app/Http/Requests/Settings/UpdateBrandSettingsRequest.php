@@ -23,6 +23,7 @@ class UpdateBrandSettingsRequest extends FormRequest
             'primary_color' => ['required', 'string', $hex],
             'font' => ['required', 'string', Rule::in(array_keys((array) config('photo_cards.fonts')))],
             'image_label' => ['nullable', 'string', 'max:60'],
+            'card_language' => ['nullable', Rule::in(BrandConfig::CARD_LANGUAGES)],
             'logo' => ['nullable', 'file', 'mimes:png,jpg,jpeg,webp', 'max:2048'],
             'logo_dark' => ['nullable', 'file', 'mimes:png,jpg,jpeg,webp', 'max:2048'],
             'remove_logo' => ['sometimes', 'boolean'],

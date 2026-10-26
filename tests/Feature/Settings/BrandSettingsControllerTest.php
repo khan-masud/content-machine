@@ -52,12 +52,14 @@ class BrandSettingsControllerTest extends TestCase
             'primary_color' => '#112233',
             'font' => 'anek-bangla',
             'image_label' => 'Concept Image',
+            'card_language' => 'en',
             'categories' => ['techy' => ['theme' => 'light', 'accent' => '#123456']],
         ])->assertRedirect(route('settings.brand.edit'));
 
         $brand = BrandConfig::fromWorkspace($workspace->fresh());
         $this->assertSame('Amar Page', $brand->name());
         $this->assertSame('#112233', $brand->primaryColor());
+        $this->assertSame('en', $brand->cardLanguage());
         $this->assertSame(['theme' => 'light', 'accent' => '#123456'], $brand->categoryStyle('techy'));
     }
 
@@ -69,8 +71,9 @@ class BrandSettingsControllerTest extends TestCase
         $this->post('/settings/brand', [
             'primary_color' => 'blue',
             'font' => 'comic-sans',
+            'card_language' => 'fr',
             'categories' => ['gossip' => ['theme' => 'light', 'accent' => '#123456']],
-        ])->assertSessionHasErrors(['primary_color', 'font', 'categories']);
+        ])->assertSessionHasErrors(['primary_color', 'font', 'card_language', 'categories']);
     }
 
     public function test_a_member_cannot_change_the_brand(): void

@@ -40,6 +40,7 @@ class SaveBrandSettingsAction
                 'primary_color' => $data->primaryColor,
                 'font' => $data->font,
                 'image_label' => $data->imageLabel,
+                'card_language' => $data->cardLanguage,
                 'logo_media_asset_id' => $logoId,
                 'logo_dark_media_asset_id' => $darkLogoId,
                 'categories' => $data->categoryStyles,

@@ -9,6 +9,9 @@ once it reaches 1.0.
 ## [Unreleased]
 
 ### Added
+- Settings → Brand → Card language (Bangla by default): the AI writes card
+  headlines in it. Before, a workspace with English and Bangla enabled got
+  English headlines.
 - Free voice-note transcription with Groq: transcription models are picked
   by the AI provider's host from `config/ai_transcription.php` (Groq:
   `whisper-large-v3`, then `whisper-large-v3-turbo`; OpenAI unchanged).
