@@ -5,6 +5,7 @@ namespace Tests\Unit\Actions\Telegram;
 use App\Actions\Posts\AttachExistingPostMediaAction;
 use App\Actions\Posts\CreatePostAction;
 use App\Actions\Telegram\GenerateTelegramPostAction;
+use App\Jobs\RenderPostPhotoCardJob;
 use App\Models\AiProviderCredential;
 use App\Models\AiProviderCredentialModel;
 use App\Models\Attachment;
@@ -438,6 +439,37 @@ class GenerateTelegramPostActionTest extends TestCase
         $this->assertInstanceOf(Post::class, $post);
         $this->assertNull($post->category);
         $this->assertSame(TelegramPostRequest::AWAITING_APPROVAL, $request->refresh()->state);
+    }
+
+    public function test_card_text_is_stored_and_the_card_render_is_queued(): void
+    {
+        Queue::fake();
+        $request = $this->generatingTextRequest();
+        $completion = new FakePostCompletionClient($this->draftJson([
+            'card' => ['headline' => 'বিল বাড়ল, [[কারেন্ট গেল]]', 'source' => 'সোর্স: প্রথম আলো'],
+        ]));
+
+        $post = $this->generate($request, $completion);
+
+        // jsonb does not keep key order.
+        $this->assertEquals(
+            ['headline' => 'বিল বাড়ল, [[কারেন্ট গেল]]', 'source' => 'সোর্স: প্রথম আলো'],
+            $post?->fresh()?->photo_card,
+        );
+        $this->assertStringContainsString('"card"', $completion->lastSystemPrompt);
+        Queue::assertPushed(RenderPostPhotoCardJob::class, fn (RenderPostPhotoCardJob $job): bool => $job->postId === $post?->id);
+    }
+
+    public function test_a_malformed_card_falls_back_without_failing_the_draft(): void
+    {
+        Queue::fake();
+        $request = $this->generatingTextRequest();
+        $completion = new FakePostCompletionClient($this->draftJson(['card' => 'not an object']));
+
+        $post = $this->generate($request, $completion);
+
+        $this->assertInstanceOf(Post::class, $post);
+        $this->assertEquals(['headline' => null, 'source' => null], $post->fresh()?->photo_card);
     }
 
     /**

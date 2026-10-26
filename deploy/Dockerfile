@@ -77,9 +77,12 @@ ARG TARGETARCH
 # supervisor: runs the worker service's queue/schedule processes (see
 # deploy/docker/supervisord.conf). The web service's scratchpad queue is
 # supervised by the base image's s6 init (see deploy/docker/s6-overlay).
+# python3-pil + libraqm0: photo cards (resources/photocards/render.py).
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
         ffmpeg \
+        libraqm0 \
+        python3-pil \
         supervisor \
     && rm -rf /var/lib/apt/lists/* \
     && case "${TARGETARCH:-amd64}" in \

@@ -6,6 +6,7 @@ use App\Support\Telegram\TelegramApiResult;
 use App\Support\Telegram\TelegramClientContract;
 use App\Support\Telegram\TelegramFileDownloadResult;
 use App\Support\Telegram\TelegramGetMeResult;
+use App\Support\Telegram\TelegramPhotoSenderContract;
 use App\Support\Telegram\TelegramWebhookInfoResult;
 
 /**
@@ -18,8 +19,15 @@ use App\Support\Telegram\TelegramWebhookInfoResult;
  * tests can assert on what was actually sent, without each test writing
  * its own recording anonymous class.
  */
-final class FakeTelegramClient implements TelegramClientContract
+final class FakeTelegramClient implements TelegramClientContract, TelegramPhotoSenderContract
 {
+    /**
+     * @var list<array{botToken: string, chatId: int, bytes: int, filename: string, caption: ?string}>
+     */
+    public array $sentPhotos = [];
+
+    public ?TelegramApiResult $sendPhotoResult = null;
+
     /**
      * @var list<array{botToken: string, chatId: int, text: string}>
      */
@@ -150,6 +158,24 @@ final class FakeTelegramClient implements TelegramClientContract
         $this->sentMessages[] = ['botToken' => $botToken, 'chatId' => $chatId, 'text' => $text];
 
         return $this->sendMessageResult;
+    }
+
+    public function sendPhoto(
+        string $botToken,
+        int $chatId,
+        string $photoContents,
+        string $filename,
+        ?string $caption = null,
+    ): TelegramApiResult {
+        $this->sentPhotos[] = [
+            'botToken' => $botToken,
+            'chatId' => $chatId,
+            'bytes' => strlen($photoContents),
+            'filename' => $filename,
+            'caption' => $caption,
+        ];
+
+        return $this->sendPhotoResult ?? TelegramApiResult::success();
     }
 
     public function setMyCommands(string $botToken, array $commands): TelegramApiResult

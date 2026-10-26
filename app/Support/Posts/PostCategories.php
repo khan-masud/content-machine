@@ -48,6 +48,18 @@ final class PostCategories
     }
 
     /**
+     * Default photo-card look for a category, before workspace overrides.
+     *
+     * @return array{theme: string, accent: string}|null
+     */
+    public static function style(string $key): ?array
+    {
+        $category = self::all()[$key] ?? null;
+
+        return $category === null ? null : ['theme' => $category['theme'], 'accent' => $category['accent']];
+    }
+
+    /**
      * Category key for a word typed by a person (key or alias, any case).
      */
     public static function fromAlias(string $word): ?string
@@ -110,11 +122,11 @@ final class PostCategories
     }
 
     /**
-     * @return array<string, array{label: string, label_bn: string, aliases: list<string>, tone: string}>
+     * @return array<string, array{label: string, label_bn: string, aliases: list<string>, tone: string, theme: string, accent: string}>
      */
     private static function all(): array
     {
-        /** @var array<string, array{label: string, label_bn: string, aliases: list<string>, tone: string}> $categories */
+        /** @var array<string, array{label: string, label_bn: string, aliases: list<string>, tone: string, theme: string, accent: string}> $categories */
         $categories = config('post_categories.categories', []);
 
         return $categories;

@@ -1,7 +1,7 @@
 # Post categories and free AI setup
 
 Every post can carry an editorial category. The category decides the tone the
-AI writes a draft in, and later features (photo cards) use it to pick a design.
+AI writes a draft in and the [photo card](photo-cards.md) style.
 
 ## Categories
 

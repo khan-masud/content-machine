@@ -16,6 +16,13 @@ once it reaches 1.0.
   category. Category is editable on the post page, the API, and the MCP
   `update_post` tool. The AI provider form has free Gemini and Groq presets.
   Guide: [docs/guides/post-categories.md](docs/guides/post-categories.md).
+- Photo cards: every generated post gets a 1080×1350 Bangla photo card
+  rendered with Pillow + libraqm (no browser, ~35 MB while rendering). The AI
+  writes the card headline and source; the card is sent to the Telegram chat
+  and can be edited and re-rendered on the post page. Settings → Brand sets
+  the name, website, logos, colour, font, image label, and per-category
+  light/dark style, with a live preview. Requires `python3-pil` and
+  `libraqm0` on the server. Guide: [docs/guides/photo-cards.md](docs/guides/photo-cards.md).
 - Workspace API tokens: hashed bearer tokens minted/revoked from the Team
   page, with per-token abilities (scratchpad:read/write, ideas:read/write).
 - JSON API under `/api/v1` for the Scratch Pad and Ideas: list/show/capture

@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-final class HttpTelegramClient implements TelegramClientContract
+final class HttpTelegramClient implements TelegramClientContract, TelegramPhotoSenderContract
 {
     private const API_BASE_URL = 'https://api.telegram.org';
 
@@ -137,6 +137,36 @@ final class HttpTelegramClient implements TelegramClientContract
         }
 
         return TelegramApiResult::success();
+    }
+
+    public function sendPhoto(
+        string $botToken,
+        int $chatId,
+        string $photoContents,
+        string $filename,
+        ?string $caption = null,
+    ): TelegramApiResult {
+        try {
+            $response = Http::attach('photo', $photoContents, $filename)
+                ->timeout(30)
+                ->post(self::API_BASE_URL."/bot{$botToken}/sendPhoto", array_filter([
+                    'chat_id' => $chatId,
+                    // Telegram caps photo captions at 1024 characters.
+                    'caption' => $caption === null ? null : mb_substr($caption, 0, 1024),
+                ], fn ($value): bool => $value !== null));
+        } catch (Throwable) {
+            $result = TelegramApiResult::failure('Could not reach Telegram to send the photo.', outcomeUnknown: true);
+            $this->logMessageFailure($chatId, $result->error);
+
+            return $result;
+        }
+
+        $result = $this->toApiResult($response, 'Telegram rejected the photo.');
+        if (! $result->successful) {
+            $this->logMessageFailure($chatId, $result->error);
+        }
+
+        return $result;
     }
 
     public function setMyCommands(string $botToken, array $commands): TelegramApiResult

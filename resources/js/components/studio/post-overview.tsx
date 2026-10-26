@@ -25,6 +25,12 @@ const POST_PIPELINE = [
 
 const DEFAULT_TIMEZONE = 'Asia/Dhaka';
 
+export type PostPhotoCard = {
+    headline: string | null;
+    source: string | null;
+    image_url: string | null;
+};
+
 export type PostCategoryOption = {
     key: string;
     label: string;
@@ -47,6 +53,7 @@ type Props = {
     } | null;
     category?: string | null;
     categories?: PostCategoryOption[];
+    photoCard?: PostPhotoCard | null;
     workspaces?: WorkspaceBucket[];
     publishUrl: string;
     postsyncerReady: boolean;
@@ -232,6 +239,7 @@ export default function PostOverview({
     templateMeta,
     category = null,
     categories = [],
+    photoCard = null,
     workspaces,
     publishUrl,
     postsyncerReady,
@@ -369,6 +377,86 @@ export default function PostOverview({
                             </option>
                         ))}
                     </select>
+                </section>
+            )}
+            {photoCard && (
+                <section className="pane">
+                    <div className="pane-head">
+                        <span className="k">Photo card</span>
+                    </div>
+                    <div className="flex flex-wrap gap-4">
+                        {photoCard.image_url ? (
+                            <a
+                                href={photoCard.image_url}
+                                target="_blank"
+                                rel="noreferrer"
+                            >
+                                <img
+                                    src={photoCard.image_url}
+                                    alt="Photo card"
+                                    className="w-56 rounded-md border"
+                                />
+                            </a>
+                        ) : (
+                            <p className="w-56 text-sm text-muted-foreground">
+                                No card rendered yet.
+                            </p>
+                        )}
+                        <Form
+                            action={`/posts/${postId}/card`}
+                            method="post"
+                            options={{ preserveScroll: true }}
+                            className="grid min-w-64 flex-1 content-start gap-3"
+                        >
+                            {({ processing, errors }) => (
+                                <>
+                                    <label className="grid gap-1 text-sm">
+                                        <span>
+                                            Headline (wrap key words in [[ ]])
+                                        </span>
+                                        <textarea
+                                            name="headline"
+                                            rows={3}
+                                            defaultValue={
+                                                photoCard.headline ?? ''
+                                            }
+                                            placeholder={title}
+                                            className="rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none"
+                                        />
+                                    </label>
+                                    <label className="grid gap-1 text-sm">
+                                        <span>Source line</span>
+                                        <input
+                                            name="source"
+                                            defaultValue={
+                                                photoCard.source ?? ''
+                                            }
+                                            placeholder="সোর্স: ..."
+                                            className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none"
+                                        />
+                                    </label>
+                                    {(errors.photo_card ||
+                                        errors.headline ||
+                                        errors.source) && (
+                                        <p className="text-sm text-destructive">
+                                            {errors.photo_card ??
+                                                errors.headline ??
+                                                errors.source}
+                                        </p>
+                                    )}
+                                    <button
+                                        type="submit"
+                                        className="advance justify-self-start"
+                                        disabled={processing}
+                                    >
+                                        {photoCard.image_url
+                                            ? 'Render again'
+                                            : 'Render card'}
+                                    </button>
+                                </>
+                            )}
+                        </Form>
+                    </div>
                 </section>
             )}
             <section className="pane">

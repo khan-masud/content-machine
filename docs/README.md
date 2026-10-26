@@ -8,5 +8,6 @@
   - [JSON API (v1)](guides/api.md)
   - [PostSyncer](guides/postsyncer.md)
   - [Post categories and free AI setup](guides/post-categories.md)
+  - [Photo cards and brand settings](guides/photo-cards.md)
 - [Architecture Decision Records](adr/)
   - [0001: Webhook, not polling](adr/0001-webhook-not-polling.md)

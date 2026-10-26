@@ -73,6 +73,7 @@ class CreatePostAction
                     ? (is_string($attributes['template']) ? strtoupper($attributes['template']) : null)
                     : null,
                 'category' => PostCategories::normalize($category),
+                'photo_card' => is_array($attributes['photo_card'] ?? null) ? $attributes['photo_card'] : null,
                 'body' => $attributes['body'] ?? null,
                 'captions' => $attributes['captions'] ?? null,
                 'platforms' => $attributes['platforms'] ?? null,

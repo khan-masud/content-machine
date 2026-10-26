@@ -4,7 +4,10 @@ import { PublishStatusBanner } from '@/components/content/publish-dialog';
 import PostCaptionsPanel from '@/components/studio/post-captions-panel';
 import PostDraftEditor from '@/components/studio/post-draft-editor';
 import PostOverview from '@/components/studio/post-overview';
-import type { PostCategoryOption } from '@/components/studio/post-overview';
+import type {
+    PostCategoryOption,
+    PostPhotoCard,
+} from '@/components/studio/post-overview';
 import type { WorkspaceBucket } from '@/components/studio/workspace-schedule';
 import { useStudioTab } from '@/hooks/use-studio-tab';
 import type { LangCode } from '@/lib/lang-meta';
@@ -52,6 +55,7 @@ type PostDetail = {
         visual_identity: string;
     } | null;
     category: string | null;
+    photo_card: PostPhotoCard;
     status: string;
     blocked_reason: string | null;
     publish_state: string;
@@ -170,6 +174,7 @@ export default function PostShow({ post, categories }: PageProps) {
                         templateMeta={post.template_meta}
                         category={post.category}
                         categories={categories}
+                        photoCard={post.photo_card}
                         workspaces={post.workspaces}
                         publishUrl={`/posts/${post.id}/publish`}
                         postsyncerReady={post.postsyncer_ready}

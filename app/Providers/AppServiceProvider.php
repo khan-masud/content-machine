@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Contracts\PexelsProvider;
+use App\Contracts\PhotoCardRenderer;
 use App\Support\AiProviders\AiCompletionClientContract;
 use App\Support\AiProviders\AiProviderVerifierContract;
 use App\Support\AiProviders\AiTranscriptionClientContract;
@@ -16,8 +17,10 @@ use App\Support\LinkResolution\LinkResolverContract;
 use App\Support\LinkResolution\ProcessLinkResolver;
 use App\Support\Pexels\HttpPexelsProvider;
 use App\Support\Pexels\PexelsConfig;
+use App\Support\PhotoCards\PillowPhotoCardRenderer;
 use App\Support\Telegram\HttpTelegramClient;
 use App\Support\Telegram\TelegramClientContract;
+use App\Support\Telegram\TelegramPhotoSenderContract;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Middleware\RedirectIfAuthenticated;
 use Illuminate\Support\Facades\Date;
@@ -41,6 +44,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(AiCompletionClientContract::class, HttpAiCompletionClient::class);
         $this->app->bind(AiVisionCompletionClientContract::class, HttpAiCompletionClient::class);
         $this->app->bind(TelegramClientContract::class, HttpTelegramClient::class);
+        $this->app->bind(TelegramPhotoSenderContract::class, HttpTelegramClient::class);
+        $this->app->bind(PhotoCardRenderer::class, PillowPhotoCardRenderer::class);
         $this->app->bind(PexelsProvider::class, function ($app): PexelsProvider {
             $workspace = $app->make(CurrentWorkspace::class)->get();
             abort_if($workspace === null, 404, 'No current workspace.');

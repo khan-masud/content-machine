@@ -42,6 +42,12 @@ class PostCategoriesTest extends TestCase
         $this->assertSame([null, null], PostCategories::splitLeading(null));
     }
 
+    public function test_style_gives_the_card_defaults(): void
+    {
+        $this->assertSame(['theme' => 'dark', 'accent' => '#FACC15'], PostCategories::style('sarcasm'));
+        $this->assertNull(PostCategories::style('gossip'));
+    }
+
     public function test_options_carry_both_labels(): void
     {
         $this->assertContains(

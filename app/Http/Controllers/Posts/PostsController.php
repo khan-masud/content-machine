@@ -202,6 +202,24 @@ class PostsController extends Controller
         return to_route('posts.show', $post);
     }
 
+    /**
+     * @return array{headline: ?string, source: ?string, image_url: ?string}
+     */
+    private function presentPhotoCard(Post $post): array
+    {
+        $card = is_array($post->photo_card) ? $post->photo_card : [];
+        $rendered = is_int($card['media_asset_id'] ?? null);
+
+        return [
+            'headline' => is_string($card['headline'] ?? null) ? $card['headline'] : null,
+            'source' => is_string($card['source'] ?? null) ? $card['source'] : null,
+            // The version query busts the browser cache after a re-render.
+            'image_url' => $rendered
+                ? route('posts.card.show', $post).'?v='.md5((string) ($card['rendered_at'] ?? ''))
+                : null,
+        ];
+    }
+
     private function currentWorkspace(Request $request): Workspace
     {
         $workspace = Workspace::current();
@@ -402,6 +420,7 @@ class PostsController extends Controller
             'template' => $post->template,
             'template_meta' => PostDesignTemplate::tryFrom($post->template)?->toArray(),
             'category' => $post->category,
+            'photo_card' => $this->presentPhotoCard($post),
             'status' => $post->status,
             'blocked_reason' => $post->blocked_reason,
             'publish_state' => $post->publish_state,

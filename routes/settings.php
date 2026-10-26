@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AiProviders\AiProviderCredentialModelsController;
 use App\Http\Controllers\AiProviders\AiProviderCredentialsController;
+use App\Http\Controllers\Settings\BrandSettingsController;
 use App\Http\Controllers\Settings\GeneralSettingsController;
 use App\Http\Controllers\Settings\GoogleDriveController;
 use App\Http\Controllers\Settings\PexelsSettingsController;
@@ -19,6 +20,9 @@ Route::middleware(['auth', 'verified', SetCurrentWorkspace::class])
 
         Route::get('general', [GeneralSettingsController::class, 'edit'])->name('general.edit');
 
+        Route::get('brand', [BrandSettingsController::class, 'edit'])->name('brand.edit');
+        Route::post('brand', [BrandSettingsController::class, 'update'])->name('brand.update');
+        Route::get('brand/preview', [BrandSettingsController::class, 'preview'])->name('brand.preview');
         Route::get('pexels', [PexelsSettingsController::class, 'edit'])->name('pexels.edit');
         Route::post('pexels', [PexelsSettingsController::class, 'update'])->name('pexels.update');
 
