@@ -7,5 +7,6 @@
   - [Telegram bot](guides/telegram-bot.md)
   - [JSON API (v1)](guides/api.md)
   - [PostSyncer](guides/postsyncer.md)
+  - [Post categories and free AI setup](guides/post-categories.md)
 - [Architecture Decision Records](adr/)
   - [0001: Webhook, not polling](adr/0001-webhook-not-polling.md)

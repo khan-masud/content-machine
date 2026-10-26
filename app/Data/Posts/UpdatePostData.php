@@ -5,6 +5,7 @@ namespace App\Data\Posts;
 use App\Http\Requests\Posts\UpdatePostRequest;
 use App\Models\Post;
 use App\Support\Media\PostDesignTemplate;
+use App\Support\Posts\PostCategories;
 
 /**
  * Editable surface for a post. Drive URL columns are written only when
@@ -41,6 +42,8 @@ final readonly class UpdatePostData
         public bool $hasTemplate = false,
         public ?string $blockedReason = null,
         public bool $hasBlockedReason = false,
+        public ?string $category = null,
+        public bool $hasCategory = false,
     ) {}
 
     public static function fromRequest(UpdatePostRequest $request): self
@@ -57,6 +60,8 @@ final readonly class UpdatePostData
             hasBody: $request->has('body'),
             hasCaptions: $request->has('captions'),
             hasImageDriveUrls: $request->has('image_drive_urls'),
+            category: PostCategories::normalize($request->input('category')),
+            hasCategory: $request->has('category'),
         );
     }
 
@@ -146,6 +151,10 @@ final readonly class UpdatePostData
                 ? ($payload['blocked_reason'] !== null ? (string) $payload['blocked_reason'] : null)
                 : null,
             hasBlockedReason: array_key_exists('blocked_reason', $payload),
+            category: array_key_exists('category', $payload)
+                ? PostCategories::normalize($payload['category'])
+                : $current->category,
+            hasCategory: array_key_exists('category', $payload),
         );
     }
 }

@@ -15,6 +15,7 @@ use App\Support\Content\NormalizeCaptions;
 use App\Support\Content\PostWorkspaceBuckets;
 use App\Support\Content\PresenceFlags;
 use App\Support\Media\PostDesignTemplate;
+use App\Support\Posts\PostCategories;
 use App\Support\Postsyncer\PostPublishPlanner;
 use App\Support\Postsyncer\PostsyncerClient;
 use App\Support\Postsyncer\PostsyncerConfig;
@@ -146,6 +147,7 @@ class PostsController extends Controller
 
         return Inertia::render('posts/show', [
             'post' => $this->presentDetail($post),
+            'categories' => PostCategories::options(),
         ]);
     }
 
@@ -399,6 +401,7 @@ class PostsController extends Controller
             'slug' => $post->slug,
             'template' => $post->template,
             'template_meta' => PostDesignTemplate::tryFrom($post->template)?->toArray(),
+            'category' => $post->category,
             'status' => $post->status,
             'blocked_reason' => $post->blocked_reason,
             'publish_state' => $post->publish_state,

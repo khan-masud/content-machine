@@ -25,6 +25,12 @@ const POST_PIPELINE = [
 
 const DEFAULT_TIMEZONE = 'Asia/Dhaka';
 
+export type PostCategoryOption = {
+    key: string;
+    label: string;
+    label_bn: string;
+};
+
 type Props = {
     postId: number;
     title: string;
@@ -39,6 +45,8 @@ type Props = {
         preview_url: string;
         visual_identity: string;
     } | null;
+    category?: string | null;
+    categories?: PostCategoryOption[];
     workspaces?: WorkspaceBucket[];
     publishUrl: string;
     postsyncerReady: boolean;
@@ -222,6 +230,8 @@ export default function PostOverview({
     platforms,
     language,
     templateMeta,
+    category = null,
+    categories = [],
     workspaces,
     publishUrl,
     postsyncerReady,
@@ -281,6 +291,18 @@ export default function PostOverview({
     const awaitingApproval = approvalState === 'pending';
     const scheduledAt = earliestWhen(groups, effectiveTimezone);
 
+    function changeCategory(nextCategory: string) {
+        setBusy(true);
+        router.patch(
+            `/posts/${postId}`,
+            { title, category: nextCategory === '' ? null : nextCategory },
+            {
+                preserveScroll: true,
+                onFinish: () => setBusy(false),
+            },
+        );
+    }
+
     function advanceStatus(nextStatus: 'archived' | 'draft' | 'posted') {
         if (nextStatus === 'posted' && studioStatus !== 'archived') {
             return;
@@ -326,6 +348,29 @@ export default function PostOverview({
                     )}
                 </div>
             </section>
+            {categories.length > 0 && (
+                <section className="pane">
+                    <div className="pane-head">
+                        <label className="k" htmlFor="post-category">
+                            Category
+                        </label>
+                    </div>
+                    <select
+                        id="post-category"
+                        value={category ?? ''}
+                        disabled={busy}
+                        onChange={(event) => changeCategory(event.target.value)}
+                        className="flex h-9 w-full max-w-xs rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none"
+                    >
+                        <option value="">No category</option>
+                        {categories.map((option) => (
+                            <option key={option.key} value={option.key}>
+                                {option.label} · {option.label_bn}
+                            </option>
+                        ))}
+                    </select>
+                </section>
+            )}
             <section className="pane">
                 <div className="pane-head">
                     <span className="k">Status</span>

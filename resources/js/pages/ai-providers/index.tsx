@@ -75,6 +75,23 @@ const PROVIDER_DEFAULT_BASE_URL: Record<string, string> = {
     openai: 'https://api.openai.com/v1',
 };
 
+// OpenAI-compatible hosts with a free tier. Picking one only fills the form;
+// the key still comes from the provider's own console.
+const FREE_PROVIDER_PRESETS = [
+    {
+        name: 'Google Gemini',
+        label: 'Gemini (free)',
+        baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+        keyUrl: 'https://aistudio.google.com/apikey',
+    },
+    {
+        name: 'Groq',
+        label: 'Groq (free)',
+        baseUrl: 'https://api.groq.com/openai/v1',
+        keyUrl: 'https://console.groq.com/keys',
+    },
+] as const;
+
 function ModelChainSection({
     description,
     purpose,
@@ -298,6 +315,16 @@ function AddModelDialog({
 function AddProviderDialog() {
     const [open, setOpen] = useState(false);
     const [provider, setProvider] = useState('anthropic');
+    const [label, setLabel] = useState('');
+    const [baseUrl, setBaseUrl] = useState('');
+    const [keyUrl, setKeyUrl] = useState<string | null>(null);
+
+    function applyPreset(preset: (typeof FREE_PROVIDER_PRESETS)[number]) {
+        setProvider('openai');
+        setLabel(preset.label);
+        setBaseUrl(preset.baseUrl);
+        setKeyUrl(preset.keyUrl);
+    }
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -313,17 +340,60 @@ function AddProviderDialog() {
                 <Form
                     {...AiProviderCredentialsController.store.form()}
                     resetOnSuccess
-                    onSuccess={() => setOpen(false)}
+                    onSuccess={() => {
+                        setOpen(false);
+                        setProvider('anthropic');
+                        setLabel('');
+                        setBaseUrl('');
+                        setKeyUrl(null);
+                    }}
                     className="space-y-4"
                 >
                     {({ processing, errors }) => (
                         <>
+                            <div className="grid gap-2">
+                                <span className="text-sm font-medium">
+                                    Free presets
+                                </span>
+                                <div className="flex flex-wrap gap-2">
+                                    {FREE_PROVIDER_PRESETS.map((preset) => (
+                                        <Button
+                                            key={preset.name}
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => applyPreset(preset)}
+                                        >
+                                            {preset.name}
+                                        </Button>
+                                    ))}
+                                </div>
+                                {keyUrl && (
+                                    <p className="text-xs text-muted-foreground">
+                                        Get a free API key at{' '}
+                                        <a
+                                            href={keyUrl}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="underline"
+                                        >
+                                            {keyUrl}
+                                        </a>
+                                        , then verify and pick a model.
+                                    </p>
+                                )}
+                            </div>
+
                             <div className="grid gap-2">
                                 <Label htmlFor="label">Label</Label>
                                 <Input
                                     id="label"
                                     name="label"
                                     required
+                                    value={label}
+                                    onChange={(event) =>
+                                        setLabel(event.target.value)
+                                    }
                                     placeholder="e.g. Anthropic primary"
                                 />
                                 <InputError message={errors.label} />
@@ -357,6 +427,10 @@ function AddProviderDialog() {
                                 <Input
                                     id="base_url"
                                     name="base_url"
+                                    value={baseUrl}
+                                    onChange={(event) =>
+                                        setBaseUrl(event.target.value)
+                                    }
                                     placeholder={
                                         PROVIDER_DEFAULT_BASE_URL[provider]
                                     }

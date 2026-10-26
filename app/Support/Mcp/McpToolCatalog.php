@@ -4,6 +4,7 @@ namespace App\Support\Mcp;
 
 use App\Models\Post;
 use App\Models\Video;
+use App\Support\Posts\PostCategories;
 
 /**
  * The tools this workspace exposes over MCP: scratchpad capture/triage,
@@ -215,12 +216,13 @@ final class McpToolCatalog
             ],
             [
                 'name' => 'update_post',
-                'description' => 'Update an existing post. human_id required; optional title, body, captions, platforms, status, blocked_reason, image_drive_urls. blocked_reason is cleared when status leaves blocked. Drive URLs must be publicly fetchable.',
+                'description' => 'Update an existing post. human_id required; optional title, body, category, captions, platforms, status, blocked_reason, image_drive_urls. blocked_reason is cleared when status leaves blocked. Drive URLs must be publicly fetchable.',
                 'ability' => 'posts:write',
                 'inputSchema' => self::schema([
                     'human_id' => ['type' => 'string'],
                     'title' => ['type' => 'string'],
                     'body' => ['type' => 'string'],
+                    'category' => ['type' => 'string', 'enum' => PostCategories::keys()],
                     'captions' => ['type' => 'object', 'description' => 'Per-platform caption map.'],
                     'platforms' => ['type' => 'array', 'items' => ['type' => 'string']],
                     'status' => ['type' => 'string', 'enum' => Post::STATUSES],

@@ -9,6 +9,13 @@ once it reaches 1.0.
 ## [Unreleased]
 
 ### Added
+- Post categories (`recent`, `politics`, `analysis`, `funny`, `sarcasm`,
+  `techy`, configured in `config/post_categories.php`). Telegram
+  `/post sarcasm <text or link>` files the draft under that category and
+  writes it in the category's tone; without one, the model picks the
+  category. Category is editable on the post page, the API, and the MCP
+  `update_post` tool. The AI provider form has free Gemini and Groq presets.
+  Guide: [docs/guides/post-categories.md](docs/guides/post-categories.md).
 - Workspace API tokens: hashed bearer tokens minted/revoked from the Team
   page, with per-token abilities (scratchpad:read/write, ideas:read/write).
 - JSON API under `/api/v1` for the Scratch Pad and Ideas: list/show/capture

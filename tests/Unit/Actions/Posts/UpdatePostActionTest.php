@@ -131,6 +131,41 @@ class UpdatePostActionTest extends TestCase
         $this->assertSame('approved', $post->approval_state);
     }
 
+    public function test_changing_the_category_keeps_the_approval(): void
+    {
+        $post = Post::factory()->create([
+            'title' => 'Keep title',
+            'approval_state' => 'approved',
+            'category' => 'recent',
+        ]);
+
+        $request = UpdatePostRequest::create('/posts/1', 'PATCH', [
+            'title' => 'Keep title',
+            'category' => 'analysis',
+        ]);
+
+        (new UpdatePostAction)->handle($post, UpdatePostData::fromRequest($request));
+
+        $post->refresh();
+        $this->assertSame('analysis', $post->category);
+        $this->assertSame('approved', $post->approval_state);
+    }
+
+    public function test_a_patch_without_category_keeps_it_and_null_clears_it(): void
+    {
+        $post = Post::factory()->create(['title' => 'Keep title', 'category' => 'funny']);
+
+        (new UpdatePostAction)->handle($post, UpdatePostData::fromRequest(
+            UpdatePostRequest::create('/posts/1', 'PATCH', ['title' => 'Keep title', 'status' => 'ready']),
+        ));
+        $this->assertSame('funny', $post->refresh()->category);
+
+        (new UpdatePostAction)->handle($post, UpdatePostData::fromRequest(
+            UpdatePostRequest::create('/posts/1', 'PATCH', ['title' => 'Keep title', 'category' => null]),
+        ));
+        $this->assertNull($post->refresh()->category);
+    }
+
     public function test_editing_captions_requires_approval_again(): void
     {
         $post = Post::factory()->create([

@@ -183,4 +183,81 @@ class StartTelegramPostActionTest extends TestCase
         $this->assertSame('photo', $request->sourceEntry->kind);
         Queue::assertPushed(GenerateTelegramPostJob::class);
     }
+
+    public function test_a_leading_category_is_kept_on_the_request_and_taken_off_the_source(): void
+    {
+        Queue::fake();
+        ['config' => $config, 'link' => $link] = $this->linkedBot();
+
+        $request = $this->action()->handle(
+            $config,
+            $link,
+            555,
+            42,
+            $this->update('/post Sarcasm the electricity bill went up again'),
+            'Sarcasm the electricity bill went up again',
+        );
+
+        $this->assertSame('sarcasm', $request->category);
+        $this->assertSame('the electricity bill went up again', $request->instruction);
+        $this->assertSame('the electricity bill went up again', $request->sourceEntry->body);
+    }
+
+    public function test_a_bangla_category_alias_is_recognised(): void
+    {
+        Queue::fake();
+        ['config' => $config, 'link' => $link] = $this->linkedBot();
+
+        $request = $this->action()->handle(
+            $config,
+            $link,
+            555,
+            42,
+            $this->update('/post রাজনীতি নির্বাচনের তারিখ ঘোষণা'),
+            'রাজনীতি নির্বাচনের তারিখ ঘোষণা',
+        );
+
+        $this->assertSame('politics', $request->category);
+        $this->assertSame('নির্বাচনের তারিখ ঘোষণা', $request->sourceEntry->body);
+    }
+
+    public function test_text_without_a_leading_category_is_left_alone(): void
+    {
+        Queue::fake();
+        ['config' => $config, 'link' => $link] = $this->linkedBot();
+
+        $request = $this->action()->handle(
+            $config,
+            $link,
+            555,
+            42,
+            $this->update('/post a funny thing happened'),
+            'a funny thing happened',
+        );
+
+        $this->assertNull($request->category);
+        $this->assertSame('a funny thing happened', $request->sourceEntry->body);
+    }
+
+    public function test_a_category_only_post_command_waits_and_keeps_the_category_for_the_follow_up(): void
+    {
+        Queue::fake();
+        ['config' => $config, 'link' => $link] = $this->linkedBot();
+        $action = $this->action();
+
+        $waiting = $action->handle($config, $link, 555, 42, $this->update('/post funny'), 'funny');
+
+        $this->assertSame(TelegramPostRequest::AWAITING_INPUT, $waiting->state);
+        $this->assertSame('funny', $waiting->category);
+        $this->assertSame(0, ScratchpadEntry::count());
+
+        $source = $this->update('the office kettle broke again');
+        $source['update_id'] = 2;
+        $request = $action->handle($config, $link, 555, 42, $source, null, $waiting);
+
+        $this->assertTrue($request->is($waiting));
+        $this->assertSame(TelegramPostRequest::GENERATING, $request->state);
+        $this->assertSame('funny', $request->category);
+        $this->assertSame('the office kettle broke again', $request->sourceEntry->body);
+    }
 }

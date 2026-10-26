@@ -25,6 +25,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $webhook_generation
  * @property string $state
  * @property string|null $instruction
+ * @property string|null $category
  * @property string|null $error_message
  * @property CarbonImmutable|null $work_claimed_at
  * @property string|null $work_lease_id
@@ -74,6 +75,7 @@ class TelegramPostRequest extends Model
         'webhook_generation',
         'state',
         'instruction',
+        'category',
         'error_message',
         'work_claimed_at',
         'work_lease_id',

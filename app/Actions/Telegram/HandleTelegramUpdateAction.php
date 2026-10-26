@@ -15,6 +15,7 @@ use App\Models\TelegramPostRequest;
 use App\Models\TelegramUpdate;
 use App\Models\Video;
 use App\Models\Workspace;
+use App\Support\Posts\PostCategories;
 use App\Support\Telegram\TelegramClientContract;
 use App\Support\Telegram\TelegramUpdateKey;
 use Carbon\CarbonImmutable;
@@ -74,7 +75,7 @@ class HandleTelegramUpdateAction
         /posts: your workspace's most recent posts
         /notes: your active Scratch Pad note count and most recent ones
         /note <text>: save a Scratch Pad note
-        /post <text>: create a draft, or send the next photo/voice/audio
+        /post [category] <text>: create a draft, or send the next photo/voice/audio
         /approve P-123: approve a generated draft
         /post_now P-123 (or /post-now P-123): publish an approved draft now
         /schedule P-123 YYYY-MM-DD HH:MM: schedule an approved draft
@@ -1400,7 +1401,9 @@ class HandleTelegramUpdateAction
 
     private function helpText(TelegramBotConfig $config): string
     {
-        return self::HELP_TEXT."\n\n".($config->ai_chat_enabled ? self::CHAT_DEFAULT_TEXT : self::CAPTURE_DEFAULT_TEXT);
+        return self::HELP_TEXT."\n\nPost categories: ".implode(', ', PostCategories::keys())
+            .' (e.g. /post sarcasm https://...)'
+            ."\n\n".($config->ai_chat_enabled ? self::CHAT_DEFAULT_TEXT : self::CAPTURE_DEFAULT_TEXT);
     }
 
     private function notLinkedMessage(): string

@@ -11,13 +11,16 @@ use App\Models\TelegramBotLink;
 use App\Models\TelegramPostRequest;
 use App\Models\Transcription;
 use App\Models\Workspace;
+use App\Support\Posts\PostCategories;
 use App\Support\Telegram\TelegramUpdateKey;
 use Illuminate\Support\Facades\DB;
 
 /**
  * Starts a post request from a command, a pending /post prompt, or a media
  * caption. Capture still lands in Scratch Pad first, preserving the original
- * source even when generation later fails.
+ * source even when generation later fails. A leading category word
+ * ("/post sarcasm https://...") is taken off the instruction and kept on the
+ * request for generation.
  */
 class StartTelegramPostAction
 {
@@ -49,7 +52,7 @@ class StartTelegramPostAction
             throw new \RuntimeException('This Telegram account is not linked to this bot.');
         }
 
-        $instruction = $instruction !== null ? trim($instruction) : null;
+        [$category, $instruction] = PostCategories::splitLeading($instruction);
 
         return DB::transaction(function () use (
             $config,
@@ -58,6 +61,7 @@ class StartTelegramPostAction
             $telegramUserId,
             $update,
             $instruction,
+            $category,
             $pendingRequest,
         ): TelegramPostRequest {
             // Serialize one Telegram bot's post prompts. This prevents two
@@ -182,23 +186,26 @@ class StartTelegramPostAction
                 'webhook_generation' => $lockedConfig->webhook_generation,
                 'state' => TelegramPostRequest::AWAITING_INPUT,
                 'instruction' => null,
+                'category' => $category,
             ]);
 
             if ($entry === null) {
                 return $request;
             }
 
+            // A follow-up source to a bare "/post sarcasm" carries no category
+            // of its own, so it keeps the one the prompt asked for.
             $updated = TelegramPostRequest::query()
                 ->whereKey($request->id)
                 ->where('state', TelegramPostRequest::AWAITING_INPUT)
-                ->update([
+                ->update(array_merge([
                     'source_scratchpad_entry_id' => $entry->id,
                     'state' => TelegramPostRequest::GENERATING,
                     'instruction' => $instruction !== null && $instruction !== '' ? $instruction : null,
                     'webhook_generation' => $lockedConfig->webhook_generation,
                     'error_message' => null,
                     'cancelled_at' => null,
-                ]);
+                ], $category !== null ? ['category' => $category] : []));
 
             if ($updated === 0) {
                 return $request->fresh() ?? $request;
@@ -236,10 +243,11 @@ class StartTelegramPostAction
     }
 
     /**
-     * Remove the command itself before passing a bare `/post` to the normal
-     * capture action. Media messages keep their photo/audio payload while the
-     * command caption is removed; a text-only command becomes an empty update
-     * and therefore creates an awaiting-input request.
+     * Remove the command itself before passing a bare `/post` (optionally
+     * followed by just a category word) to the normal capture action. Media
+     * messages keep their photo/audio payload while the command caption is
+     * removed; a text-only command becomes an empty update and therefore
+     * creates an awaiting-input request.
      *
      * @param  array<string, mixed>  $update
      * @return array<string, mixed>
@@ -255,7 +263,8 @@ class StartTelegramPostAction
         $commandText = $message['text'] ?? $message['caption'] ?? null;
 
         if (! is_string($commandText)
-            || preg_match('/^\/post(?:@[A-Za-z0-9_]+)?$/i', trim($commandText)) !== 1
+            || preg_match('/^\/post(?:@[A-Za-z0-9_]+)?(?:\s+(\S+))?$/iu', trim($commandText), $matches) !== 1
+            || (isset($matches[1]) && PostCategories::fromAlias($matches[1]) === null)
         ) {
             return $update;
         }
