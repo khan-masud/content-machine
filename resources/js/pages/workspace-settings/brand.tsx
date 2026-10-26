@@ -24,6 +24,7 @@ type PageProps = {
         primary_color: string;
         font: string;
         image_label: string;
+        card_language: string;
         has_logo: boolean;
         has_dark_logo: boolean;
     };
@@ -123,6 +124,29 @@ export default function BrandSettings({
                                             ))}
                                         </select>
                                         <InputError message={errors.font} />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="card_language">
+                                            Card language
+                                        </Label>
+                                        <select
+                                            id="card_language"
+                                            name="card_language"
+                                            defaultValue={brand.card_language}
+                                            className={SELECT_CLASS}
+                                        >
+                                            <option value="bn">Bangla</option>
+                                            <option value="en">English</option>
+                                        </select>
+                                        <p className="text-sm text-muted-foreground">
+                                            The AI writes card headlines in this
+                                            language. Saying "in English" in a
+                                            Telegram message overrides it for
+                                            that post.
+                                        </p>
+                                        <InputError
+                                            message={errors.card_language}
+                                        />
                                     </div>
                                     <div className="grid gap-2 sm:col-span-2">
                                         <Label htmlFor="image_label">

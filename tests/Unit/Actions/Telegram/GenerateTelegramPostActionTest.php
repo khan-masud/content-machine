@@ -22,6 +22,7 @@ use App\Support\AiProviders\AiCompletionClientContract;
 use App\Support\AiProviders\AiCompletionResult;
 use App\Support\AiProviders\AiProviderCredentialResolver;
 use App\Support\AiProviders\AiVisionCompletionClientContract;
+use App\Support\Brand\BrandConfig;
 use App\Support\Postsyncer\PostsyncerConfig;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
@@ -426,6 +427,40 @@ class GenerateTelegramPostActionTest extends TestCase
         foreach (array_keys((array) config('post_categories.categories')) as $key) {
             $this->assertStringContainsString("- {$key}: ", $completion->lastSystemPrompt);
         }
+    }
+
+    public function test_the_card_headline_is_written_in_the_brand_card_language(): void
+    {
+        Queue::fake();
+        $request = $this->generatingTextRequest();
+        $completion = new FakePostCompletionClient($this->draftJson());
+
+        $this->generate($request, $completion);
+
+        $this->assertStringContainsString('6-14 word line in Bangla (Bengali script)', $completion->lastSystemPrompt);
+    }
+
+    public function test_the_brand_card_language_can_be_english(): void
+    {
+        Queue::fake();
+        $request = $this->generatingTextRequest();
+        BrandConfig::write($request->workspace, ['card_language' => 'en']);
+        $completion = new FakePostCompletionClient($this->draftJson());
+
+        $this->generate($request, $completion);
+
+        $this->assertStringContainsString('6-14 word line in English', $completion->lastSystemPrompt);
+    }
+
+    public function test_asking_for_english_in_the_message_overrides_the_card_language(): void
+    {
+        Queue::fake();
+        $request = $this->generatingTextRequest(['instruction' => 'write it in English']);
+        $completion = new FakePostCompletionClient($this->draftJson(['language' => 'en']));
+
+        $this->generate($request, $completion);
+
+        $this->assertStringContainsString('6-14 word line in English', $completion->lastSystemPrompt);
     }
 
     public function test_an_unknown_model_category_is_dropped_without_failing_the_draft(): void

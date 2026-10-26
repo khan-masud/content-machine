@@ -33,6 +33,7 @@ class SaveBrandSettingsActionTest extends TestCase
             'primaryColor' => '#112233',
             'font' => 'anek-bangla',
             'imageLabel' => 'Concept Image',
+            'cardLanguage' => 'en',
             'categoryStyles' => ['funny' => ['theme' => 'dark', 'accent' => '#00FF00']],
         ], $overrides));
     }
@@ -53,6 +54,7 @@ class SaveBrandSettingsActionTest extends TestCase
         $this->assertSame('#112233', $brand->primaryColor());
         $this->assertSame('anek-bangla', $brand->font());
         $this->assertSame('Concept Image', $brand->imageLabel());
+        $this->assertSame('en', $brand->cardLanguage());
         $this->assertSame(['theme' => 'dark', 'accent' => '#00FF00'], $brand->categoryStyle('funny'));
         $logo = MediaAsset::query()->findOrFail($brand->logoMediaAssetId());
         $this->assertSame($workspace->id, $logo->workspace_id);

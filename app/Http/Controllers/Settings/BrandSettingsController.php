@@ -36,6 +36,7 @@ class BrandSettingsController extends Controller
                 'primary_color' => $brand->primaryColor(),
                 'font' => $brand->font(),
                 'image_label' => $stored['image_label'] ?? '',
+                'card_language' => $brand->cardLanguage(),
                 'has_logo' => $brand->logoMediaAssetId() !== null,
                 'has_dark_logo' => $brand->darkLogoMediaAssetId() !== null,
             ],

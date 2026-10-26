@@ -83,6 +83,7 @@ image.
 | Brand name | Brand chip when there is no logo, and the image label |
 | Website or handle | Top-left of every card |
 | Brand colour | Logo chip, and the accent for posts without a category |
+| Card language | Language of the AI-written headline (Bangla by default). "In English" in a Telegram message overrides it for that post. |
 | Font | Hind Siliguri or Anek Bangla (both OFL, bundled in `resources/fonts/photocards`) |
 | Image label | Bottom-right on cards with a photo, e.g. `প্রতীকী চিত্র \| Your Page` |
 | Logo / dark logo | Top-right; dark cards use the dark logo when one is set |

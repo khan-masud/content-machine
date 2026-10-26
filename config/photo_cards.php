@@ -66,5 +66,7 @@ return [
         'primary_color' => '#0E7490',
         'font' => 'hind-siliguri',
         'image_label' => 'প্রতীকী চিত্র',
+        // Language of the AI-written card headline: bn or en.
+        'card_language' => 'bn',
     ],
 ];
