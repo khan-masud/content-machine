@@ -329,6 +329,30 @@ class PostsApiTest extends TestCase
         $this->assertSame('E', Post::query()->where('human_id', 'P-63')->value('template'));
     }
 
+    public function test_store_and_patch_accept_a_category(): void
+    {
+        $this->acting()->postJson('/api/v1/posts', [
+            'title' => 'Fuel price',
+            'category' => 'politics',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.category', 'politics');
+
+        $humanId = (string) Post::query()->where('title', 'Fuel price')->value('human_id');
+
+        $this->acting()->patchJson("/api/v1/posts/{$humanId}", ['category' => 'sarcasm'])
+            ->assertOk()
+            ->assertJsonPath('data.category', 'sarcasm');
+
+        $this->acting()->patchJson("/api/v1/posts/{$humanId}", ['category' => 'gossip'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('category');
+
+        $this->acting()->getJson('/api/v1/posts')
+            ->assertOk()
+            ->assertJsonPath('data.0.category', 'sarcasm');
+    }
+
     public function test_store_and_patch_accept_active_g_and_h_catalog_templates(): void
     {
         $this->acting()->postJson('/api/v1/posts', [

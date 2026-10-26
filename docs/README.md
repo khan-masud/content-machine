@@ -1,11 +1,15 @@
 # Documentation
 
 - [Getting started: local development](getting-started/local.md)
+- [Self-hosting on a small VPS](getting-started/vps.md)
 - [Architecture overview](architecture/overview.md)
 - [Posts and videos](architecture/posts-videos-api.md)
 - [Guides](guides/)
   - [Telegram bot](guides/telegram-bot.md)
   - [JSON API (v1)](guides/api.md)
   - [PostSyncer](guides/postsyncer.md)
+  - [Post categories and free AI setup](guides/post-categories.md)
+  - [Photo cards and brand settings](guides/photo-cards.md)
+  - [Facebook Page publishing](guides/facebook-page.md)
 - [Architecture Decision Records](adr/)
   - [0001: Webhook, not polling](adr/0001-webhook-not-polling.md)

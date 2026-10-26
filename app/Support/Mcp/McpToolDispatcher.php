@@ -36,6 +36,7 @@ use App\Support\GoogleDrive\GoogleDriveClient;
 use App\Support\GoogleDrive\GoogleDriveLinkChecker;
 use App\Support\Media\MediaLibraryTab;
 use App\Support\Media\PresentMediaAsset;
+use App\Support\Posts\PostCategories;
 use RuntimeException;
 
 /**
@@ -450,7 +451,14 @@ final class McpToolDispatcher
     private function updatePost(array $arguments): array
     {
         $post = $this->findPost($this->stringArg($arguments, 'human_id'));
-        $payload = $this->optionalPayload($arguments, ['title', 'body', 'status', 'blocked_reason']);
+        $payload = $this->optionalPayload($arguments, ['title', 'body', 'status', 'blocked_reason', 'category']);
+
+        if (array_key_exists('category', $payload)
+            && $payload['category'] !== null
+            && PostCategories::normalize($payload['category']) === null
+        ) {
+            throw new RuntimeException('category must be one of: '.implode(', ', PostCategories::keys()).'.');
+        }
 
         if (array_key_exists('captions', $arguments)) {
             $captions = $arguments['captions'];
@@ -487,7 +495,7 @@ final class McpToolDispatcher
         }
 
         if ($payload === []) {
-            throw new RuntimeException('Send at least one of title, body, captions, platforms, status, blocked_reason, image_drive_urls.');
+            throw new RuntimeException('Send at least one of title, body, category, captions, platforms, status, blocked_reason, image_drive_urls.');
         }
 
         $this->assertAllowedStatus($payload, Post::STATUSES, 'post');

@@ -2,8 +2,11 @@
 
 use App\Http\Controllers\AiProviders\AiProviderCredentialModelsController;
 use App\Http\Controllers\AiProviders\AiProviderCredentialsController;
+use App\Http\Controllers\Settings\BrandSettingsController;
+use App\Http\Controllers\Settings\FacebookSettingsController;
 use App\Http\Controllers\Settings\GeneralSettingsController;
 use App\Http\Controllers\Settings\GoogleDriveController;
+use App\Http\Controllers\Settings\ImageAiSettingsController;
 use App\Http\Controllers\Settings\PexelsSettingsController;
 use App\Http\Controllers\Settings\PostsyncerSettingsController;
 use App\Http\Controllers\Telegram\TelegramBotConfigController;
@@ -19,6 +22,14 @@ Route::middleware(['auth', 'verified', SetCurrentWorkspace::class])
 
         Route::get('general', [GeneralSettingsController::class, 'edit'])->name('general.edit');
 
+        Route::get('brand', [BrandSettingsController::class, 'edit'])->name('brand.edit');
+        Route::post('brand', [BrandSettingsController::class, 'update'])->name('brand.update');
+        Route::get('brand/preview', [BrandSettingsController::class, 'preview'])->name('brand.preview');
+        Route::get('facebook', [FacebookSettingsController::class, 'edit'])->name('facebook.edit');
+        Route::post('facebook', [FacebookSettingsController::class, 'update'])->name('facebook.update');
+        Route::delete('facebook', [FacebookSettingsController::class, 'destroy'])->name('facebook.destroy');
+        Route::get('image-ai', [ImageAiSettingsController::class, 'edit'])->name('image-ai.edit');
+        Route::post('image-ai', [ImageAiSettingsController::class, 'update'])->name('image-ai.update');
         Route::get('pexels', [PexelsSettingsController::class, 'edit'])->name('pexels.edit');
         Route::post('pexels', [PexelsSettingsController::class, 'update'])->name('pexels.update');
 

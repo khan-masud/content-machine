@@ -88,6 +88,12 @@ class UpdatePostAction
                 $attributes['template'] = $data->template;
             }
 
+            // Category only labels the post; changing it is not a content
+            // edit, so it never invalidates an approval.
+            if ($data->hasCategory) {
+                $attributes['category'] = $data->category;
+            }
+
             if ($data->status !== null) {
                 $attributes['status'] = $data->status;
             }

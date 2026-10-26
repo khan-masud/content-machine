@@ -148,8 +148,20 @@ const mainNavItems: NavItem[] = [
                 href: '/settings/google-drive',
             },
             {
+                title: 'Facebook',
+                href: '/settings/facebook',
+            },
+            {
+                title: 'Brand',
+                href: '/settings/brand',
+            },
+            {
                 title: 'Pexels',
                 href: '/settings/pexels',
+            },
+            {
+                title: 'Image AI',
+                href: '/settings/image-ai',
             },
             {
                 title: 'AI Models',

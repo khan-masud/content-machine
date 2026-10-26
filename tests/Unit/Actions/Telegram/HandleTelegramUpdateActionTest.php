@@ -16,9 +16,12 @@ use App\Actions\Telegram\LinkTelegramAccountAction;
 use App\Actions\Telegram\ResolveTelegramIntentAction;
 use App\Actions\Telegram\ResolveTelegramWorkspaceActionAction;
 use App\Jobs\GenerateTelegramPostJob;
+use App\Jobs\PublishFacebookPostJob;
 use App\Jobs\PublishPostJob;
+use App\Jobs\RenderPostPhotoCardJob;
 use App\Jobs\ResolveScratchpadLinkJob;
 use App\Models\AiProviderCredential;
+use App\Models\FacebookPublication;
 use App\Models\Idea;
 use App\Models\Post;
 use App\Models\ScratchpadEntry;
@@ -37,6 +40,7 @@ use App\Support\Telegram\TelegramClientContract;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use RuntimeException;
+use Tests\Support\Facebook\FakeFacebookPageClient;
 use Tests\Support\Telegram\FakeTelegramClient;
 use Tests\TestCase;
 
@@ -991,6 +995,111 @@ class HandleTelegramUpdateActionTest extends TestCase
         $this->assertSame('approved', $post->refresh()->approval_state);
         $this->assertSame(TelegramPostRequest::APPROVED, $request->refresh()->state);
         $this->assertStringContainsString('approved', $this->lastReply());
+    }
+
+    public function test_recard_queues_a_new_background_and_card(): void
+    {
+        Queue::fake();
+        $config = TelegramBotConfig::factory()->connected()->create();
+        $user = User::factory()->create();
+        TelegramBotLink::factory()->create([
+            'telegram_bot_config_id' => $config->id,
+            'user_id' => $user->id,
+            'telegram_user_id' => 1,
+        ]);
+        $post = Post::factory()->create(['workspace_id' => $config->workspace_id]);
+        TelegramPostRequest::factory()->create([
+            'workspace_id' => $config->workspace_id,
+            'telegram_bot_config_id' => $config->id,
+            'post_id' => $post->id,
+            'telegram_user_id' => 1,
+            'telegram_chat_id' => 555,
+            'state' => TelegramPostRequest::AWAITING_APPROVAL,
+        ]);
+
+        $this->action()->handle($config, $this->update(1, '/recard '.$post->human_id));
+
+        Queue::assertPushed(RenderPostPhotoCardJob::class, fn (RenderPostPhotoCardJob $job): bool => $job->postId === $post->id
+            && $job->refreshBackground
+            && $job->notifyTelegram);
+        $this->assertStringContainsString('new card for '.$post->human_id, $this->lastReply());
+    }
+
+    public function test_post_now_goes_to_the_facebook_page_when_it_is_connected(): void
+    {
+        Queue::fake();
+        $config = TelegramBotConfig::factory()->connected()->create();
+        FakeFacebookPageClient::connect($config->workspace);
+        TelegramBotLink::factory()->create([
+            'telegram_bot_config_id' => $config->id,
+            'user_id' => User::factory()->create()->id,
+            'telegram_user_id' => 1,
+        ]);
+        $post = Post::factory()->create(['workspace_id' => $config->workspace_id, 'approval_state' => 'approved']);
+        $request = TelegramPostRequest::factory()->create([
+            'workspace_id' => $config->workspace_id,
+            'telegram_bot_config_id' => $config->id,
+            'post_id' => $post->id,
+            'telegram_user_id' => 1,
+            'telegram_chat_id' => 555,
+            'state' => TelegramPostRequest::APPROVED,
+        ]);
+
+        $this->action()->handle($config, $this->update(1, '/post_now '.$post->human_id));
+
+        $publication = FacebookPublication::query()->sole();
+        $this->assertSame(FacebookPublication::QUEUED, $publication->state);
+        $this->assertSame($request->id, $publication->telegram_post_request_id);
+        Queue::assertPushed(PublishFacebookPostJob::class);
+        $this->assertStringContainsString('queued for immediate publishing', $this->lastReply());
+    }
+
+    public function test_schedule_goes_to_the_facebook_page_when_it_is_connected(): void
+    {
+        Queue::fake();
+        $config = TelegramBotConfig::factory()->connected()->create();
+        FakeFacebookPageClient::connect($config->workspace);
+        TelegramBotLink::factory()->create([
+            'telegram_bot_config_id' => $config->id,
+            'user_id' => User::factory()->create()->id,
+            'telegram_user_id' => 1,
+        ]);
+        $post = Post::factory()->create(['workspace_id' => $config->workspace_id, 'approval_state' => 'approved']);
+        TelegramPostRequest::factory()->create([
+            'workspace_id' => $config->workspace_id,
+            'telegram_bot_config_id' => $config->id,
+            'post_id' => $post->id,
+            'telegram_user_id' => 1,
+            'telegram_chat_id' => 555,
+            'state' => TelegramPostRequest::APPROVED,
+        ]);
+        $when = now($config->workspace->timezone ?: 'Asia/Dhaka')->addDay()->format('Y-m-d H:i');
+
+        $this->action()->handle($config, $this->update(1, '/schedule '.$post->human_id.' '.$when));
+
+        $publication = FacebookPublication::query()->sole();
+        $this->assertSame(FacebookPublication::SCHEDULED, $publication->state);
+        $this->assertSame(
+            $when,
+            $publication->scheduled_for?->setTimezone($config->workspace->timezone ?: 'Asia/Dhaka')->format('Y-m-d H:i'),
+        );
+        Queue::assertNotPushed(PublishFacebookPostJob::class);
+    }
+
+    public function test_recard_without_a_draft_explains_how_to_use_it(): void
+    {
+        Queue::fake();
+        $config = TelegramBotConfig::factory()->connected()->create();
+        TelegramBotLink::factory()->create([
+            'telegram_bot_config_id' => $config->id,
+            'user_id' => User::factory()->create()->id,
+            'telegram_user_id' => 1,
+        ]);
+
+        $this->action()->handle($config, $this->update(1, '/recard'));
+
+        Queue::assertNotPushed(RenderPostPhotoCardJob::class);
+        $this->assertStringContainsString('/recard P-123', $this->lastReply());
     }
 
     public function test_an_explicit_post_id_cannot_approve_another_telegram_users_request(): void

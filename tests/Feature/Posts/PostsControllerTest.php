@@ -966,6 +966,27 @@ class PostsControllerTest extends TestCase
         $this->patch(route('posts.update', $post), ['title' => 'Nope'])->assertNotFound();
     }
 
+    public function test_show_offers_categories_and_patch_sets_one(): void
+    {
+        [, $workspace] = $this->actingAsWorkspaceMember();
+        $post = Post::factory()->for($workspace)->create(['title' => 'Kettle', 'category' => null]);
+
+        $this->get(route('posts.show', $post))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('post.category', null)
+                ->has('categories', 6)
+                ->where('categories.0.key', 'recent'));
+
+        $this->patch(route('posts.update', $post), ['title' => 'Kettle', 'category' => 'funny'])
+            ->assertRedirect(route('posts.show', $post));
+        $this->assertSame('funny', $post->refresh()->category);
+
+        $this->patch(route('posts.update', $post), ['title' => 'Kettle', 'category' => 'gossip'])
+            ->assertSessionHasErrors('category');
+        $this->assertSame('funny', $post->refresh()->category);
+    }
+
     public function test_show_exposes_postsyncer_groups_for_a_scheduled_post(): void
     {
         [, $workspace] = $this->actingAsWorkspaceMember();

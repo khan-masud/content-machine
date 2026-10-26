@@ -498,6 +498,39 @@ class McpServerTest extends TestCase
         $this->assertSame('New post', Post::query()->where('human_id', 'BP-7')->value('title'));
     }
 
+    public function test_update_post_sets_a_category_and_rejects_an_unknown_one(): void
+    {
+        Post::factory()->for($this->workspace)->create([
+            'human_id' => 'BP-8',
+            'number' => 8,
+            'title' => 'Tagged post',
+        ]);
+
+        $this->mcp([
+            'jsonrpc' => '2.0',
+            'id' => 13,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'update_post',
+                'arguments' => ['human_id' => 'BP-8', 'category' => 'techy'],
+            ],
+        ])->assertOk()->assertJsonMissingPath('result.isError');
+
+        $this->assertSame('techy', Post::query()->where('human_id', 'BP-8')->value('category'));
+
+        $this->mcp([
+            'jsonrpc' => '2.0',
+            'id' => 14,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'update_post',
+                'arguments' => ['human_id' => 'BP-8', 'category' => 'gossip'],
+            ],
+        ])->assertOk()->assertJsonPath('result.isError', true);
+
+        $this->assertSame('techy', Post::query()->where('human_id', 'BP-8')->value('category'));
+    }
+
     public function test_publish_post_queues_the_job(): void
     {
         Queue::fake();

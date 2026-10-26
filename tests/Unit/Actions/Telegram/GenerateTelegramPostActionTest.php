@@ -5,6 +5,7 @@ namespace Tests\Unit\Actions\Telegram;
 use App\Actions\Posts\AttachExistingPostMediaAction;
 use App\Actions\Posts\CreatePostAction;
 use App\Actions\Telegram\GenerateTelegramPostAction;
+use App\Jobs\RenderPostPhotoCardJob;
 use App\Models\AiProviderCredential;
 use App\Models\AiProviderCredentialModel;
 use App\Models\Attachment;
@@ -396,6 +397,141 @@ class GenerateTelegramPostActionTest extends TestCase
         $this->assertSame('A useful test body.', $post->captions[0]['platforms'][0]['caption']);
         $this->assertSame('A useful test body.', $post->captions[0]['platforms'][1]['caption']);
     }
+
+    public function test_the_requested_category_sets_the_tone_and_is_stored_on_the_post(): void
+    {
+        Queue::fake();
+        $request = $this->generatingTextRequest(['category' => 'sarcasm']);
+        // The model disagreeing with the command does not override the person.
+        $completion = new FakePostCompletionClient($this->draftJson(['category' => 'politics']));
+
+        $post = $this->generate($request, $completion);
+
+        $this->assertSame('sarcasm', $post?->category);
+        $this->assertStringContainsString('"Sarcasm" category', $completion->lastSystemPrompt);
+        $this->assertStringContainsString((string) config('post_categories.categories.sarcasm.tone'), $completion->lastSystemPrompt);
+        $this->assertStringContainsString('Category: Sarcasm', TelegramOutboundMessage::query()->sole()->chunks[0]);
+    }
+
+    public function test_without_a_requested_category_the_model_picks_one(): void
+    {
+        Queue::fake();
+        $request = $this->generatingTextRequest();
+        $completion = new FakePostCompletionClient($this->draftJson(['category' => 'techy']));
+
+        $post = $this->generate($request, $completion);
+
+        $this->assertSame('techy', $post?->category);
+        $this->assertStringContainsString('Choose the one category', $completion->lastSystemPrompt);
+        foreach (array_keys((array) config('post_categories.categories')) as $key) {
+            $this->assertStringContainsString("- {$key}: ", $completion->lastSystemPrompt);
+        }
+    }
+
+    public function test_an_unknown_model_category_is_dropped_without_failing_the_draft(): void
+    {
+        Queue::fake();
+        $request = $this->generatingTextRequest();
+        $completion = new FakePostCompletionClient($this->draftJson(['category' => 'gossip']));
+
+        $post = $this->generate($request, $completion);
+
+        $this->assertInstanceOf(Post::class, $post);
+        $this->assertNull($post->category);
+        $this->assertSame(TelegramPostRequest::AWAITING_APPROVAL, $request->refresh()->state);
+    }
+
+    public function test_card_text_is_stored_and_the_card_render_is_queued(): void
+    {
+        Queue::fake();
+        $request = $this->generatingTextRequest();
+        $completion = new FakePostCompletionClient($this->draftJson([
+            'card' => [
+                'headline' => 'বিল বাড়ল, [[কারেন্ট গেল]]',
+                'source' => 'সোর্স: প্রথম আলো',
+                'image_prompt' => 'A dark Dhaka street during a power cut',
+                'image_query' => 'power outage city',
+            ],
+        ]));
+
+        $post = $this->generate($request, $completion);
+
+        // jsonb does not keep key order.
+        $this->assertEquals(
+            [
+                'headline' => 'বিল বাড়ল, [[কারেন্ট গেল]]',
+                'source' => 'সোর্স: প্রথম আলো',
+                'image_prompt' => 'A dark Dhaka street during a power cut',
+                'image_query' => 'power outage city',
+            ],
+            $post?->fresh()?->photo_card,
+        );
+        $this->assertStringContainsString('"card"', $completion->lastSystemPrompt);
+        $this->assertStringContainsString('Never depict', $completion->lastSystemPrompt);
+        Queue::assertPushed(RenderPostPhotoCardJob::class, fn (RenderPostPhotoCardJob $job): bool => $job->postId === $post?->id);
+    }
+
+    public function test_a_malformed_card_falls_back_without_failing_the_draft(): void
+    {
+        Queue::fake();
+        $request = $this->generatingTextRequest();
+        $completion = new FakePostCompletionClient($this->draftJson(['card' => 'not an object']));
+
+        $post = $this->generate($request, $completion);
+
+        $this->assertInstanceOf(Post::class, $post);
+        $this->assertEquals(['headline' => null, 'source' => null, 'image_prompt' => null], $post->fresh()?->photo_card);
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function generatingTextRequest(array $attributes = []): TelegramPostRequest
+    {
+        $workspace = Workspace::factory()->create();
+        $config = TelegramBotConfig::factory()->connected()->create(['workspace_id' => $workspace->id]);
+        AiProviderCredential::factory()->withModel()->create(['workspace_id' => $workspace->id]);
+        $entry = ScratchpadEntry::factory()->create([
+            'workspace_id' => $workspace->id,
+            'kind' => 'text',
+            'source' => 'telegram',
+            'body' => 'Electricity prices went up again.',
+        ]);
+
+        return TelegramPostRequest::factory()->create(array_merge([
+            'workspace_id' => $workspace->id,
+            'telegram_bot_config_id' => $config->id,
+            'source_scratchpad_entry_id' => $entry->id,
+            'state' => TelegramPostRequest::GENERATING,
+        ], $attributes));
+    }
+
+    /**
+     * @param  array<string, mixed>  $extra
+     */
+    private function draftJson(array $extra = []): string
+    {
+        return json_encode(array_merge([
+            'title' => 'Prices up',
+            'body' => 'Body.',
+            'language' => 'bn',
+            'captions' => [
+                'facebook' => ['caption' => 'Facebook caption', 'first_comment' => ''],
+                'instagram' => ['caption' => 'Instagram caption', 'first_comment' => ''],
+            ],
+        ], $extra), JSON_THROW_ON_ERROR);
+    }
+
+    private function generate(TelegramPostRequest $request, FakePostCompletionClient $completion): ?Post
+    {
+        return (new GenerateTelegramPostAction(
+            app(CreatePostAction::class),
+            new AttachExistingPostMediaAction,
+            $completion,
+            $completion,
+            new AiProviderCredentialResolver,
+        ))->handle($request->id);
+    }
 }
 
 final class FakePostCompletionClient implements AiCompletionClientContract, AiVisionCompletionClientContract
@@ -404,11 +540,14 @@ final class FakePostCompletionClient implements AiCompletionClientContract, AiVi
 
     public string $lastUserContent = '';
 
+    public string $lastSystemPrompt = '';
+
     public function __construct(private readonly string $response) {}
 
     public function complete(AiProviderCredentialModel $entry, string $systemPrompt, string $userContent): AiCompletionResult
     {
         $this->lastUserContent = $userContent;
+        $this->lastSystemPrompt = $systemPrompt;
 
         return AiCompletionResult::success($this->response);
     }

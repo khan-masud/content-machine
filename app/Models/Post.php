@@ -27,6 +27,8 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
  * @property string|null $language
  * @property string|null $slug
  * @property string|null $template
+ * @property string|null $category
+ * @property array<string, mixed>|null $photo_card photo card text, rendered card and background ids (see RenderPostPhotoCardAction)
  * @property string|null $body
  * @property array<string, mixed>|null $captions
  * @property array<string, mixed>|null $platforms
@@ -85,6 +87,8 @@ class Post extends Model
         'language',
         'slug',
         'template',
+        'category',
+        'photo_card',
         'body',
         'captions',
         'platforms',
@@ -110,6 +114,7 @@ class Post extends Model
     {
         return [
             'captions' => 'array',
+            'photo_card' => 'array',
             'platforms' => 'array',
             'image_drive_urls' => 'array',
             'postsyncer' => 'array',

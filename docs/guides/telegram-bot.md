@@ -46,8 +46,9 @@ can actually reach you.
 | `/posts` | Your workspace's most recent posts. |
 | `/notes` | Your workspace's most recent Scratch Pad captures (text, links, photos, voice, audio). |
 | `/note <text>` | Saves a Scratch Pad text note. |
-| `/post <text>` | Creates a post draft from the text. A photo, voice note, or audio file can be sent after a bare `/post`. |
+| `/post [category] <text>` | Creates a post draft from the text. A photo, voice note, or audio file can be sent after a bare `/post` (or `/post sarcasm`). The optional category is one of `recent`, `politics`, `analysis`, `funny`, `sarcasm`, `techy` or its Bangla name; see [post categories](post-categories.md). |
 | `/approve P-123` | Approves a generated draft for publishing. |
+| `/recard P-123` | Finds a new background and sends a new photo card for a draft. See [photo cards](photo-cards.md). |
 | `/post_now P-123` or `/post-now P-123` | Publishes an approved draft now. |
 | `/schedule P-123 YYYY-MM-DD HH:MM` | Schedules an approved draft in the workspace timezone. |
 | `/cancel` | Cancels the active post request without deleting its source or draft. |
@@ -61,6 +62,10 @@ provider configured.
 photo, voice note, or audio file, send `/post` first, then send the media. A caption starting
 with `/post` also works, for example `/post write a short post about this` on a
 photo.
+
+Put a category first to set the draft's tone: `/post sarcasm https://...`,
+`/post রাজনীতি ...`. Without one, the AI picks the category. The preview shows
+it, and you can change it on the post page.
 
 The bot sends a preview when the draft is ready. It never publishes from the
 generation step. Review the draft in Content Machine, then send `/approve P-123`

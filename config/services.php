@@ -41,4 +41,10 @@ return [
         'redirect' => env('GOOGLE_DRIVE_REDIRECT_URI', rtrim((string) env('APP_URL', 'http://localhost'), '/').'/settings/google-drive/callback'),
     ],
 
+    'facebook' => [
+        // Graph API versions are supported for about two years; bump when
+        // Meta announces the current one's end of life.
+        'graph_version' => env('FACEBOOK_GRAPH_VERSION', 'v23.0'),
+    ],
+
 ];

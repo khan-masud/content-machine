@@ -31,6 +31,7 @@ use App\Rules\AccessibleDriveUrl;
 use App\Support\Api\IncludeFields;
 use App\Support\Content\PresenceFlags;
 use App\Support\Media\PostDesignTemplate;
+use App\Support\Posts\PostCategories;
 use App\Support\Postsyncer\PostsyncerException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -74,6 +75,7 @@ class PostsApiController extends Controller
                 'language',
                 'slug',
                 'template',
+                'category',
                 'platforms',
                 'image_drive_urls',
                 'postsyncer',
@@ -112,6 +114,7 @@ class PostsApiController extends Controller
             'language' => ['nullable', 'string', 'max:8'],
             'slug' => ['nullable', 'string', 'max:255'],
             'template' => ['nullable', 'string', 'size:1', Rule::in(PostDesignTemplate::apiLetters())],
+            'category' => ['nullable', 'string', Rule::in(PostCategories::keys())],
             'body' => ['nullable', 'string'],
             'captions' => ['nullable', 'array'],
             'platforms' => ['nullable', 'array'],
@@ -141,6 +144,7 @@ class PostsApiController extends Controller
             'language' => ['sometimes', 'nullable', 'string', 'max:8'],
             'slug' => ['sometimes', 'nullable', 'string', 'max:255'],
             'template' => ['sometimes', 'nullable', 'string', 'size:1', Rule::in(PostDesignTemplate::apiLetters())],
+            'category' => ['sometimes', 'nullable', 'string', Rule::in(PostCategories::keys())],
             'body' => ['sometimes', 'nullable', 'string'],
             'captions' => ['sometimes', 'nullable', 'array'],
             'platforms' => ['sometimes', 'nullable', 'array'],

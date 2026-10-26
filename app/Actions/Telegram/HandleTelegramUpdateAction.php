@@ -3,10 +3,10 @@
 namespace App\Actions\Telegram;
 
 use App\Actions\Posts\ApprovePostAction;
-use App\Actions\Postsyncer\EnqueuePostPublishAction;
 use App\Actions\Scratchpad\CaptureTextNoteAction;
 use App\Actions\Scratchpad\DeleteRecentScratchpadEntriesAction;
 use App\Data\Scratchpad\CaptureTextNoteData;
+use App\Jobs\RenderPostPhotoCardJob;
 use App\Models\Post;
 use App\Models\ScratchpadEntry;
 use App\Models\TelegramBotConfig;
@@ -15,6 +15,8 @@ use App\Models\TelegramPostRequest;
 use App\Models\TelegramUpdate;
 use App\Models\Video;
 use App\Models\Workspace;
+use App\Support\Posts\PostCategories;
+use App\Support\Publishing\PostPublishChannels;
 use App\Support\Telegram\TelegramClientContract;
 use App\Support\Telegram\TelegramUpdateKey;
 use Carbon\CarbonImmutable;
@@ -74,8 +76,9 @@ class HandleTelegramUpdateAction
         /posts: your workspace's most recent posts
         /notes: your active Scratch Pad note count and most recent ones
         /note <text>: save a Scratch Pad note
-        /post <text>: create a draft, or send the next photo/voice/audio
+        /post [category] <text>: create a draft, or send the next photo/voice/audio
         /approve P-123: approve a generated draft
+        /recard P-123: new background and photo card for a draft
         /post_now P-123 (or /post-now P-123): publish an approved draft now
         /schedule P-123 YYYY-MM-DD HH:MM: schedule an approved draft
         /cancel: cancel the pending draft request
@@ -107,7 +110,7 @@ class HandleTelegramUpdateAction
         private readonly TelegramClientContract $client,
         private readonly ?StartTelegramPostAction $startTelegramPostAction = null,
         private readonly ?ApprovePostAction $approvePostAction = null,
-        private readonly ?EnqueuePostPublishAction $enqueuePostPublishAction = null,
+        private readonly ?PostPublishChannels $publishChannels = null,
         private readonly ?CancelTelegramPostRequestAction $cancelTelegramPostRequestAction = null,
         private readonly ?QueueTelegramMessageAction $queueTelegramMessageAction = null,
         private readonly ?ResolveTelegramWorkspaceActionAction $resolveWorkspaceAction = null,
@@ -495,6 +498,7 @@ class HandleTelegramUpdateAction
             '/note' => $this->handleNote($config, $chatId, $args, $telegramUpdateKey, $update, $dispatchLeaseId),
             '/post' => $this->handlePost($config, $link, $chatId, $fromUserId, $args, $update, $dispatchLeaseId),
             '/approve' => $this->handleApprove($config, $link, $chatId, $fromUserId, $args, $update, $dispatchLeaseId),
+            '/recard' => $this->handleRecard($config, $chatId, $fromUserId, $args, $update, $dispatchLeaseId),
             '/post_now' => $this->handlePostNow($config, $link, $chatId, $fromUserId, $args, $update, $dispatchLeaseId),
             '/schedule' => $this->handleSchedule($config, $link, $chatId, $fromUserId, $args, $update, $dispatchLeaseId),
             '/cancel' => $this->handleCancel($config, $chatId, $fromUserId, $args, $update, $dispatchLeaseId),
@@ -778,6 +782,44 @@ class HandleTelegramUpdateAction
     /**
      * @param  array<string, mixed>  $update
      */
+    private function handleRecard(
+        TelegramBotConfig $config,
+        int $chatId,
+        int $telegramUserId,
+        string $args,
+        array $update,
+        ?string $dispatchLeaseId = null,
+    ): void {
+        try {
+            $request = $this->postTarget($config, $chatId, $telegramUserId, $args, [
+                TelegramPostRequest::AWAITING_APPROVAL,
+                TelegramPostRequest::APPROVED,
+            ]);
+        } catch (RuntimeException $exception) {
+            $this->reply($config, $chatId, $exception->getMessage());
+
+            return;
+        }
+
+        if ($request === null || $request->post === null) {
+            $this->reply($config, $chatId, 'No draft found for a new card. Use /recard P-123.');
+
+            return;
+        }
+
+        if ($dispatchLeaseId !== null
+            && ! $this->ownsDispatchLease($config, $update, $dispatchLeaseId)) {
+            return;
+        }
+
+        RenderPostPhotoCardJob::dispatch($request->post->id, notifyTelegram: true, refreshBackground: true);
+
+        $this->reply($config, $chatId, "🎨 Making a new card for {$request->post->human_id}. It arrives here in a minute.");
+    }
+
+    /**
+     * @param  array<string, mixed>  $update
+     */
     private function handlePostNow(
         TelegramBotConfig $config,
         TelegramBotLink $link,
@@ -813,10 +855,7 @@ class HandleTelegramUpdateAction
                     return;
                 }
 
-                $this->enqueuePostPublishAction()->handle($post, $config->workspace, [
-                    'confirm_ask' => true,
-                    'telegram_request_id' => $request->id,
-                ]);
+                $this->publishChannels()->forWorkspace($config->workspace)->enqueue($post, $config->workspace, null, $request->id);
 
                 $this->reply($config, $chatId, "🚀 {$post->human_id} is queued for immediate publishing.");
             });
@@ -884,11 +923,12 @@ class HandleTelegramUpdateAction
                     return;
                 }
 
-                $this->enqueuePostPublishAction()->handle($post, $config->workspace, [
-                    'when' => $when,
-                    'confirm_ask' => true,
-                    'telegram_request_id' => $request->id,
-                ]);
+                $this->publishChannels()->forWorkspace($config->workspace)->enqueue(
+                    $post,
+                    $config->workspace,
+                    CarbonImmutable::parse($when),
+                    $request->id,
+                );
 
                 $this->reply($config, $chatId, "🗓️ {$post->human_id} is queued for {$when} ({$config->workspace->timezone}).");
             });
@@ -1146,9 +1186,9 @@ class HandleTelegramUpdateAction
         return $this->approvePostAction ?? app(ApprovePostAction::class);
     }
 
-    private function enqueuePostPublishAction(): EnqueuePostPublishAction
+    private function publishChannels(): PostPublishChannels
     {
-        return $this->enqueuePostPublishAction ?? app(EnqueuePostPublishAction::class);
+        return $this->publishChannels ?? app(PostPublishChannels::class);
     }
 
     private function cancelPostRequestAction(): CancelTelegramPostRequestAction
@@ -1400,7 +1440,9 @@ class HandleTelegramUpdateAction
 
     private function helpText(TelegramBotConfig $config): string
     {
-        return self::HELP_TEXT."\n\n".($config->ai_chat_enabled ? self::CHAT_DEFAULT_TEXT : self::CAPTURE_DEFAULT_TEXT);
+        return self::HELP_TEXT."\n\nPost categories: ".implode(', ', PostCategories::keys())
+            .' (e.g. /post sarcasm https://...)'
+            ."\n\n".($config->ai_chat_enabled ? self::CHAT_DEFAULT_TEXT : self::CAPTURE_DEFAULT_TEXT);
     }
 
     private function notLinkedMessage(): string

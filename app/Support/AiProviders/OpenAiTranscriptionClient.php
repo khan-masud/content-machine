@@ -12,22 +12,17 @@ use Throwable;
  * $credential->model: that field is for chat/completion models, a
  * different concern from which model transcribes audio.
  *
- * Tries gpt-4o-transcribe first (much better at Bangla), then falls back
- * to whisper-1 on the same credential when that call fails (non-2xx,
- * network error, or empty text). gpt-4o-transcribe only accepts
- * response_format=json and reports no language, so its language is
- * inferred from the script ("bengali" or "english", whisper's naming).
- * If both fail, the first model's error is returned.
+ * The models come from config/ai_transcription.php, picked by the base
+ * URL's host: on OpenAI, gpt-4o-transcribe first (much better at Bangla),
+ * then whisper-1; on Groq, its free Whisper large v3 models. The next
+ * model is tried on the same credential when a call fails (non-2xx,
+ * network error, or empty text). A json-format model reports no
+ * language, so it is inferred from the script ("bengali" or "english",
+ * whisper's naming). If every model fails, the first error is returned.
  */
 final class OpenAiTranscriptionClient implements AiTranscriptionClientContract
 {
     private const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
-
-    /** Model => response_format, in the order they are tried. */
-    private const MODELS = [
-        'gpt-4o-transcribe' => 'json',
-        'whisper-1' => 'verbose_json',
-    ];
 
     public function __construct(
         private readonly ?PublicUrlGuard $urlGuard = null,
@@ -46,9 +41,15 @@ final class OpenAiTranscriptionClient implements AiTranscriptionClientContract
             return AiTranscriptionResult::failure('Could not reach the transcription provider.');
         }
 
+        $models = $this->modelsFor($endpoint['url']);
+
+        if ($models === []) {
+            return AiTranscriptionResult::failure('This AI provider does not transcribe audio.');
+        }
+
         $firstFailure = null;
 
-        foreach (self::MODELS as $model => $format) {
+        foreach ($models as $model => $format) {
             $result = $this->attempt($credential, $endpoint, $model, $format, $audioContents, $filename, $mimeType);
 
             if ($result->successful) {
@@ -59,6 +60,18 @@ final class OpenAiTranscriptionClient implements AiTranscriptionClientContract
         }
 
         return $firstFailure;
+    }
+
+    /**
+     * @return array<string, string> model => response_format
+     */
+    private function modelsFor(string $url): array
+    {
+        $models = config('ai_transcription.models', []);
+        $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+        $chosen = is_array($models) ? ($models[$host] ?? $models['default'] ?? []) : [];
+
+        return is_array($chosen) ? array_filter($chosen, 'is_string') : [];
     }
 
     /**

@@ -5,6 +5,7 @@ namespace App\Http\Requests\Posts;
 use App\Data\Posts\UpdatePostData;
 use App\Models\Post;
 use App\Support\GoogleDrive\GoogleDriveLinkChecker;
+use App\Support\Posts\PostCategories;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -25,6 +26,7 @@ class UpdatePostRequest extends FormRequest
             'captions' => ['sometimes', 'nullable', 'array'],
             'status' => ['sometimes', 'string', Rule::in(Post::STATUSES)],
             'image_drive_urls' => ['nullable', 'string', 'max:10000'],
+            'category' => ['sometimes', 'nullable', 'string', Rule::in(PostCategories::keys())],
         ];
     }
 

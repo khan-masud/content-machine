@@ -1,8 +1,10 @@
 import { Form, Link, router } from '@inertiajs/react';
 import { ArrowUpRight } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import PublishDialog from '@/components/content/publish-dialog';
 import TemplatePreview from '@/components/media/template-preview';
+import FacebookPublishPane from '@/components/studio/facebook-publish-pane';
+import type { FacebookPublishState } from '@/components/studio/facebook-publish-pane';
 import {
     PlatformChipRow,
     WorkspacePlatformChips,
@@ -25,6 +27,20 @@ const POST_PIPELINE = [
 
 const DEFAULT_TIMEZONE = 'Asia/Dhaka';
 
+export type PostPhotoCard = {
+    headline: string | null;
+    source: string | null;
+    image_prompt: string | null;
+    image_url: string | null;
+    background: string | null;
+};
+
+export type PostCategoryOption = {
+    key: string;
+    label: string;
+    label_bn: string;
+};
+
 type Props = {
     postId: number;
     title: string;
@@ -39,6 +55,10 @@ type Props = {
         preview_url: string;
         visual_identity: string;
     } | null;
+    category?: string | null;
+    categories?: PostCategoryOption[];
+    photoCard?: PostPhotoCard | null;
+    facebook?: FacebookPublishState | null;
     workspaces?: WorkspaceBucket[];
     publishUrl: string;
     postsyncerReady: boolean;
@@ -222,6 +242,10 @@ export default function PostOverview({
     platforms,
     language,
     templateMeta,
+    category = null,
+    categories = [],
+    photoCard = null,
+    facebook = null,
     workspaces,
     publishUrl,
     postsyncerReady,
@@ -281,6 +305,58 @@ export default function PostOverview({
     const awaitingApproval = approvalState === 'pending';
     const scheduledAt = earliestWhen(groups, effectiveTimezone);
 
+    const [waitingForCard, setWaitingForCard] = useState(false);
+    const cardUrl = photoCard?.image_url ?? null;
+
+    // A new background renders in the queue; reload until the card changes.
+    useEffect(() => {
+        if (!waitingForCard) {
+            return;
+        }
+
+        let tries = 0;
+        const timer = window.setInterval(() => {
+            tries += 1;
+            router.reload({ only: ['post'] });
+
+            if (tries >= 20) {
+                setWaitingForCard(false);
+            }
+        }, 3000);
+
+        return () => window.clearInterval(timer);
+    }, [waitingForCard]);
+
+    const [lastCardUrl, setLastCardUrl] = useState(cardUrl);
+
+    if (cardUrl !== lastCardUrl) {
+        setLastCardUrl(cardUrl);
+        setWaitingForCard(false);
+    }
+
+    function newBackground() {
+        router.post(
+            `/posts/${postId}/card/background`,
+            {},
+            {
+                preserveScroll: true,
+                onSuccess: () => setWaitingForCard(true),
+            },
+        );
+    }
+
+    function changeCategory(nextCategory: string) {
+        setBusy(true);
+        router.patch(
+            `/posts/${postId}`,
+            { title, category: nextCategory === '' ? null : nextCategory },
+            {
+                preserveScroll: true,
+                onFinish: () => setBusy(false),
+            },
+        );
+    }
+
     function advanceStatus(nextStatus: 'archived' | 'draft' | 'posted') {
         if (nextStatus === 'posted' && studioStatus !== 'archived') {
             return;
@@ -326,6 +402,150 @@ export default function PostOverview({
                     )}
                 </div>
             </section>
+            {categories.length > 0 && (
+                <section className="pane">
+                    <div className="pane-head">
+                        <label className="k" htmlFor="post-category">
+                            Category
+                        </label>
+                    </div>
+                    <select
+                        id="post-category"
+                        value={category ?? ''}
+                        disabled={busy}
+                        onChange={(event) => changeCategory(event.target.value)}
+                        className="flex h-9 w-full max-w-xs rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none"
+                    >
+                        <option value="">No category</option>
+                        {categories.map((option) => (
+                            <option key={option.key} value={option.key}>
+                                {option.label} · {option.label_bn}
+                            </option>
+                        ))}
+                    </select>
+                </section>
+            )}
+            {facebook && (
+                <FacebookPublishPane
+                    postId={postId}
+                    facebook={facebook}
+                    approvalState={approvalState}
+                    timezone={effectiveTimezone}
+                />
+            )}
+            {photoCard && (
+                <section className="pane">
+                    <div className="pane-head">
+                        <span className="k">Photo card</span>
+                    </div>
+                    <div className="flex flex-wrap gap-4">
+                        {photoCard.image_url ? (
+                            <a
+                                href={photoCard.image_url}
+                                target="_blank"
+                                rel="noreferrer"
+                            >
+                                <img
+                                    src={photoCard.image_url}
+                                    alt="Photo card"
+                                    className="w-56 rounded-md border"
+                                />
+                            </a>
+                        ) : (
+                            <p className="w-56 text-sm text-muted-foreground">
+                                No card rendered yet.
+                            </p>
+                        )}
+                        <Form
+                            action={`/posts/${postId}/card`}
+                            method="post"
+                            options={{ preserveScroll: true }}
+                            className="grid min-w-64 flex-1 content-start gap-3"
+                        >
+                            {({ processing, errors }) => (
+                                <>
+                                    <label className="grid gap-1 text-sm">
+                                        <span>
+                                            Headline (wrap key words in [[ ]])
+                                        </span>
+                                        <textarea
+                                            name="headline"
+                                            rows={3}
+                                            defaultValue={
+                                                photoCard.headline ?? ''
+                                            }
+                                            placeholder={title}
+                                            className="rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none"
+                                        />
+                                    </label>
+                                    <label className="grid gap-1 text-sm">
+                                        <span>
+                                            Background idea (English, for AI
+                                            images)
+                                        </span>
+                                        <textarea
+                                            name="image_prompt"
+                                            rows={2}
+                                            defaultValue={
+                                                photoCard.image_prompt ?? ''
+                                            }
+                                            placeholder="A crowded Dhaka street at dusk with tangled power lines"
+                                            className="rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none"
+                                        />
+                                    </label>
+                                    <label className="grid gap-1 text-sm">
+                                        <span>Source line</span>
+                                        <input
+                                            name="source"
+                                            defaultValue={
+                                                photoCard.source ?? ''
+                                            }
+                                            placeholder="সোর্স: ..."
+                                            className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none"
+                                        />
+                                    </label>
+                                    {(errors.photo_card ||
+                                        errors.headline ||
+                                        errors.source) && (
+                                        <p className="text-sm text-destructive">
+                                            {errors.photo_card ??
+                                                errors.headline ??
+                                                errors.source}
+                                        </p>
+                                    )}
+                                    <p className="text-xs text-muted-foreground">
+                                        Background:{' '}
+                                        {photoCard.background ?? 'none'}
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                        <button
+                                            type="submit"
+                                            className="advance"
+                                            disabled={processing}
+                                        >
+                                            {photoCard.image_url
+                                                ? 'Render again'
+                                                : 'Render card'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="advance"
+                                            disabled={
+                                                processing || waitingForCard
+                                            }
+                                            onClick={newBackground}
+                                        >
+                                            {waitingForCard
+                                                ? 'Finding a background…'
+                                                : 'New background'}
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </Form>
+                    </div>
+                </section>
+            )}
             <section className="pane">
                 <div className="pane-head">
                     <span className="k">Status</span>

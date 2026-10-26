@@ -1,9 +1,14 @@
 import { Head, Link } from '@inertiajs/react';
 import { useMemo } from 'react';
 import { PublishStatusBanner } from '@/components/content/publish-dialog';
+import type { FacebookPublishState } from '@/components/studio/facebook-publish-pane';
 import PostCaptionsPanel from '@/components/studio/post-captions-panel';
 import PostDraftEditor from '@/components/studio/post-draft-editor';
 import PostOverview from '@/components/studio/post-overview';
+import type {
+    PostCategoryOption,
+    PostPhotoCard,
+} from '@/components/studio/post-overview';
 import type { WorkspaceBucket } from '@/components/studio/workspace-schedule';
 import { useStudioTab } from '@/hooks/use-studio-tab';
 import type { LangCode } from '@/lib/lang-meta';
@@ -50,6 +55,9 @@ type PostDetail = {
         preview_url: string;
         visual_identity: string;
     } | null;
+    category: string | null;
+    photo_card: PostPhotoCard;
+    facebook: FacebookPublishState;
     status: string;
     blocked_reason: string | null;
     publish_state: string;
@@ -75,11 +83,12 @@ type PostDetail = {
 
 type PageProps = {
     post: PostDetail;
+    categories: PostCategoryOption[];
 };
 
 type TabKey = 'overview' | 'captions';
 
-export default function PostShow({ post }: PageProps) {
+export default function PostShow({ post, categories }: PageProps) {
     const hasCaptions = post.captions.some(
         (group) => group.platforms.length > 0,
     );
@@ -165,6 +174,10 @@ export default function PostShow({ post }: PageProps) {
                         platforms={post.platforms}
                         language={post.language}
                         templateMeta={post.template_meta}
+                        category={post.category}
+                        categories={categories}
+                        photoCard={post.photo_card}
+                        facebook={post.facebook}
                         workspaces={post.workspaces}
                         publishUrl={`/posts/${post.id}/publish`}
                         postsyncerReady={post.postsyncer_ready}

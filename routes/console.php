@@ -35,3 +35,7 @@ Schedule::command('cm:requeue-legacy-media-jobs')
 Schedule::command('postsyncer:dispatch-pending-publishes')
     ->everyMinute()
     ->withoutOverlapping(2);
+
+Schedule::command('facebook:publish-due')
+    ->everyMinute()
+    ->withoutOverlapping(2);

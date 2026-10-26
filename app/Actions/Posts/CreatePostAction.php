@@ -6,6 +6,7 @@ use App\Actions\Ids\ReserveContentIdAction;
 use App\Models\Post;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Support\Posts\PostCategories;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -55,6 +56,11 @@ class CreatePostAction
                 throw ValidationException::withMessages(['status' => "Invalid post status [{$status}]."]);
             }
 
+            $category = $attributes['category'] ?? null;
+            if ($category !== null && PostCategories::normalize($category) === null) {
+                throw ValidationException::withMessages(['category' => 'Invalid post category.']);
+            }
+
             $post = Post::create([
                 'workspace_id' => $workspace->id,
                 'idea_id' => $attributes['idea_id'] ?? null,
@@ -66,6 +72,8 @@ class CreatePostAction
                 'template' => isset($attributes['template'])
                     ? (is_string($attributes['template']) ? strtoupper($attributes['template']) : null)
                     : null,
+                'category' => PostCategories::normalize($category),
+                'photo_card' => is_array($attributes['photo_card'] ?? null) ? $attributes['photo_card'] : null,
                 'body' => $attributes['body'] ?? null,
                 'captions' => $attributes['captions'] ?? null,
                 'platforms' => $attributes['platforms'] ?? null,

@@ -7,6 +7,7 @@ use App\Data\Posts\UpdatePostData;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Posts\UpdatePostRequest;
 use App\Models\Attachment;
+use App\Models\FacebookPublication;
 use App\Models\Idea;
 use App\Models\MediaAsset;
 use App\Models\Post;
@@ -14,7 +15,10 @@ use App\Models\Workspace;
 use App\Support\Content\NormalizeCaptions;
 use App\Support\Content\PostWorkspaceBuckets;
 use App\Support\Content\PresenceFlags;
+use App\Support\Facebook\FacebookConfig;
 use App\Support\Media\PostDesignTemplate;
+use App\Support\PhotoCards\PhotoCardComposer;
+use App\Support\Posts\PostCategories;
 use App\Support\Postsyncer\PostPublishPlanner;
 use App\Support\Postsyncer\PostsyncerClient;
 use App\Support\Postsyncer\PostsyncerConfig;
@@ -146,6 +150,7 @@ class PostsController extends Controller
 
         return Inertia::render('posts/show', [
             'post' => $this->presentDetail($post),
+            'categories' => PostCategories::options(),
         ]);
     }
 
@@ -198,6 +203,54 @@ class PostsController extends Controller
         ]);
 
         return to_route('posts.show', $post);
+    }
+
+    /**
+     * @return array{ready: bool, page_name: ?string, publication: array<string, mixed>|null}
+     */
+    private function presentFacebook(Post $post): array
+    {
+        $workspace = $post->workspace;
+        $config = $workspace === null ? null : FacebookConfig::fromWorkspace($workspace);
+        $publication = FacebookPublication::query()
+            ->where('post_id', $post->id)
+            ->where('state', '!=', FacebookPublication::CANCELLED)
+            ->latest('id')
+            ->first();
+
+        return [
+            'ready' => $config?->isReady() ?? false,
+            'page_name' => $config?->pageName(),
+            'publication' => $publication === null ? null : [
+                'id' => $publication->id,
+                'state' => $publication->state,
+                'scheduled_for' => $publication->scheduled_for?->toIso8601String(),
+                'published_at' => $publication->published_at?->toIso8601String(),
+                'permalink' => $publication->permalink,
+                'error' => $publication->error,
+                'comment_error' => $publication->comment_error,
+            ],
+        ];
+    }
+
+    /**
+     * @return array{headline: ?string, source: ?string, image_prompt: ?string, background: ?string, image_url: ?string}
+     */
+    private function presentPhotoCard(Post $post): array
+    {
+        $card = is_array($post->photo_card) ? $post->photo_card : [];
+        $rendered = is_int($card['media_asset_id'] ?? null);
+
+        return [
+            'headline' => is_string($card['headline'] ?? null) ? $card['headline'] : null,
+            'source' => is_string($card['source'] ?? null) ? $card['source'] : null,
+            'image_prompt' => is_string($card['image_prompt'] ?? null) ? $card['image_prompt'] : null,
+            'background' => PhotoCardComposer::describeBackground($post),
+            // The version query busts the browser cache after a re-render.
+            'image_url' => $rendered
+                ? route('posts.card.show', $post).'?v='.md5((string) ($card['rendered_at'] ?? ''))
+                : null,
+        ];
     }
 
     private function currentWorkspace(Request $request): Workspace
@@ -399,6 +452,9 @@ class PostsController extends Controller
             'slug' => $post->slug,
             'template' => $post->template,
             'template_meta' => PostDesignTemplate::tryFrom($post->template)?->toArray(),
+            'category' => $post->category,
+            'photo_card' => $this->presentPhotoCard($post),
+            'facebook' => $this->presentFacebook($post),
             'status' => $post->status,
             'blocked_reason' => $post->blocked_reason,
             'publish_state' => $post->publish_state,

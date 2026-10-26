@@ -2,13 +2,16 @@
 
 namespace App\Support\Telegram;
 
+use App\Concerns\ReadsBodyWithinLimit;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-final class HttpTelegramClient implements TelegramClientContract
+final class HttpTelegramClient implements TelegramClientContract, TelegramPhotoSenderContract
 {
+    use ReadsBodyWithinLimit;
+
     private const API_BASE_URL = 'https://api.telegram.org';
 
     private const MAX_FILE_BYTES = 20 * 1024 * 1024;
@@ -139,6 +142,36 @@ final class HttpTelegramClient implements TelegramClientContract
         return TelegramApiResult::success();
     }
 
+    public function sendPhoto(
+        string $botToken,
+        int $chatId,
+        string $photoContents,
+        string $filename,
+        ?string $caption = null,
+    ): TelegramApiResult {
+        try {
+            $response = Http::attach('photo', $photoContents, $filename)
+                ->timeout(30)
+                ->post(self::API_BASE_URL."/bot{$botToken}/sendPhoto", array_filter([
+                    'chat_id' => $chatId,
+                    // Telegram caps photo captions at 1024 characters.
+                    'caption' => $caption === null ? null : mb_substr($caption, 0, 1024),
+                ], fn ($value): bool => $value !== null));
+        } catch (Throwable) {
+            $result = TelegramApiResult::failure('Could not reach Telegram to send the photo.', outcomeUnknown: true);
+            $this->logMessageFailure($chatId, $result->error);
+
+            return $result;
+        }
+
+        $result = $this->toApiResult($response, 'Telegram rejected the photo.');
+        if (! $result->successful) {
+            $this->logMessageFailure($chatId, $result->error);
+        }
+
+        return $result;
+    }
+
     public function setMyCommands(string $botToken, array $commands): TelegramApiResult
     {
         try {
@@ -249,40 +282,6 @@ final class HttpTelegramClient implements TelegramClientContract
             $response->status(),
             in_array($response->status(), [408, 425], true) || $response->status() >= 500,
         );
-    }
-
-    private function readBodyWithinLimit(Response $response, int $maxBytes): ?string
-    {
-        try {
-            $stream = $response->toPsrResponse()->getBody();
-            $size = $stream->getSize();
-
-            if ($size !== null && $size > $maxBytes) {
-                return null;
-            }
-
-            $contents = '';
-            $length = 0;
-
-            while (! $stream->eof()) {
-                $chunk = $stream->read(min(8192, $maxBytes - $length + 1));
-
-                if ($chunk === '') {
-                    break;
-                }
-
-                $length += strlen($chunk);
-                if ($length > $maxBytes) {
-                    return null;
-                }
-
-                $contents .= $chunk;
-            }
-
-            return $contents;
-        } catch (Throwable) {
-            return null;
-        }
     }
 
     private function logMessageFailure(int $chatId, ?string $error): void
