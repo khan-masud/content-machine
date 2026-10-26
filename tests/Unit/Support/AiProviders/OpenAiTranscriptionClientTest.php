@@ -188,4 +188,69 @@ class OpenAiTranscriptionClientTest extends TestCase
         $this->assertSame('whisper-1', $result->model);
         $this->assertNull($result->language);
     }
+
+    public function test_groq_uses_its_free_whisper_large_v3_model(): void
+    {
+        Http::fake(['api.groq.com/*' => Http::response(['text' => 'আজকের খবর', 'language' => 'Bengali'], 200)]);
+
+        $credential = AiProviderCredential::factory()->openai()->make(['base_url' => 'https://api.groq.com/openai/v1']);
+
+        $result = (new OpenAiTranscriptionClient(new PublicUrlGuard(
+            fn (string $host): array => [['ip' => '1.1.1.1']],
+        )))->transcribe($credential, 'raw-audio-bytes', 'note.ogg', 'audio/ogg');
+
+        $this->assertTrue($result->successful);
+        $this->assertSame('whisper-large-v3', $result->model);
+        $this->assertSame('Bengali', $result->language);
+        Http::assertSentCount(1);
+        Http::assertSent(fn ($request) => $request->url() === 'https://api.groq.com/openai/v1/audio/transcriptions'
+            && str_contains((string) $request->body(), 'whisper-large-v3')
+            && str_contains((string) $request->body(), 'verbose_json')
+            && ! str_contains((string) $request->body(), 'gpt-4o-transcribe'));
+    }
+
+    public function test_groq_falls_back_to_the_turbo_model(): void
+    {
+        Http::fake(fn ($request) => str_contains((string) $request->body(), 'whisper-large-v3-turbo')
+            ? Http::response(['text' => 'turbo text', 'language' => 'english'], 200)
+            : Http::response(['error' => ['message' => 'rate limit reached']], 429));
+
+        $credential = AiProviderCredential::factory()->openai()->make(['base_url' => 'https://api.groq.com/openai/v1']);
+
+        $result = (new OpenAiTranscriptionClient(new PublicUrlGuard(
+            fn (string $host): array => [['ip' => '1.1.1.1']],
+        )))->transcribe($credential, 'raw-audio-bytes', 'note.ogg', 'audio/ogg');
+
+        $this->assertSame('whisper-large-v3-turbo', $result->model);
+        Http::assertSentCount(2);
+    }
+
+    public function test_a_provider_without_transcription_is_skipped_without_a_request(): void
+    {
+        Http::fake();
+
+        $credential = AiProviderCredential::factory()->openai()->make([
+            'base_url' => 'https://generativelanguage.googleapis.com/v1beta/openai',
+        ]);
+
+        $result = (new OpenAiTranscriptionClient(new PublicUrlGuard(
+            fn (string $host): array => [['ip' => '1.1.1.1']],
+        )))->transcribe($credential, 'raw-audio-bytes', 'note.ogg', 'audio/ogg');
+
+        $this->assertFalse($result->successful);
+        $this->assertSame('This AI provider does not transcribe audio.', $result->error);
+        Http::assertNothingSent();
+    }
+
+    public function test_the_models_come_from_config(): void
+    {
+        config(['ai_transcription.models.default' => ['custom-model' => 'verbose_json']]);
+        Http::fake(['*' => Http::response(['text' => 'hello', 'language' => 'english'], 200)]);
+
+        $credential = AiProviderCredential::factory()->openai()->make();
+
+        $result = (new OpenAiTranscriptionClient)->transcribe($credential, 'raw-audio-bytes', 'note.ogg', 'audio/ogg');
+
+        $this->assertSame('custom-model', $result->model);
+    }
 }

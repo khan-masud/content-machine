@@ -50,5 +50,6 @@ The **Groq** preset (`https://api.groq.com/openai/v1`) is a second free option
 for text. Free-tier limits and terms change; check them in each provider's
 console. Google may use free-tier prompts to improve its products.
 
-Voice-note transcription still uses OpenAI's transcription models today, so a
-Gemini or Groq key alone does not transcribe audio.
+Groq also transcribes voice notes for free with Whisper (`whisper-large-v3`).
+Gemini's OpenAI-compatible API has no transcription, so voice notes skip it.
+See [Voice notes with Groq](../getting-started/vps.md#voice-notes-with-groq).

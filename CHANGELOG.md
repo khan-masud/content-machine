@@ -9,6 +9,14 @@ once it reaches 1.0.
 ## [Unreleased]
 
 ### Added
+- Free voice-note transcription with Groq: transcription models are picked
+  by the AI provider's host from `config/ai_transcription.php` (Groq:
+  `whisper-large-v3`, then `whisper-large-v3-turbo`; OpenAI unchanged).
+  Providers without transcription, such as Gemini, are skipped without a
+  request.
+- Small-VPS self-hosting guide (Ubuntu, Nginx, PHP-FPM, PostgreSQL,
+  Supervisor, cron) sized for 1 vCPU / 2 GB, with ready config files in
+  `deploy/vps/`. Guide: [docs/getting-started/vps.md](docs/getting-started/vps.md).
 - Post categories (`recent`, `politics`, `analysis`, `funny`, `sarcasm`,
   `techy`, configured in `config/post_categories.php`). Telegram
   `/post sarcasm <text or link>` files the draft under that category and

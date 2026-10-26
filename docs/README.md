@@ -1,6 +1,7 @@
 # Documentation
 
 - [Getting started: local development](getting-started/local.md)
+- [Self-hosting on a small VPS](getting-started/vps.md)
 - [Architecture overview](architecture/overview.md)
 - [Posts and videos](architecture/posts-videos-api.md)
 - [Guides](guides/)
