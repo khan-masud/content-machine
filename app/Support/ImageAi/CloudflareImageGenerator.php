@@ -44,7 +44,12 @@ class CloudflareImageGenerator implements ImageGenerator
 
         $encoded = $response->json('result.image');
         if (! $response->successful() || ! is_string($encoded)) {
-            Log::warning('Cloudflare image generation failed.', ['status' => $response->status()]);
+            // Cloudflare's own message says why (bad token, daily allowance used up, ...).
+            $error = $response->json('errors.0.message');
+            Log::warning('Cloudflare image generation failed.', [
+                'status' => $response->status(),
+                'error' => is_string($error) ? mb_substr($error, 0, 300) : null,
+            ]);
 
             return null;
         }

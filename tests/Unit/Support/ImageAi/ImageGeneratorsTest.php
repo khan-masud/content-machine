@@ -11,6 +11,7 @@ use App\Support\ImageAi\ImageGeneratorChain;
 use App\Support\ImageAi\PollinationsImageGenerator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Tests\Support\PhotoCards\FakePhotoCardRenderer;
 use Tests\TestCase;
 
@@ -51,6 +52,18 @@ class ImageGeneratorsTest extends TestCase
 
         ImageAiConfig::write($workspace, self::ACCOUNT, 'cf-token', false);
         $this->assertNull((new CloudflareImageGenerator)->generate($workspace->fresh(), $this->prompt()));
+    }
+
+    public function test_a_cloudflare_failure_logs_cloudflares_reason(): void
+    {
+        $workspace = Workspace::factory()->create();
+        ImageAiConfig::write($workspace, self::ACCOUNT, 'cf-token', false);
+        Http::fake(['api.cloudflare.com/*' => Http::response(['success' => false, 'errors' => [['code' => 10000, 'message' => 'Authentication error']]], 403)]);
+        Log::spy();
+
+        $this->assertNull((new CloudflareImageGenerator)->generate($workspace->fresh(), $this->prompt()));
+
+        Log::shouldHaveReceived('warning')->with('Cloudflare image generation failed.', ['status' => 403, 'error' => 'Authentication error']);
     }
 
     public function test_pollinations_downloads_an_image_and_can_be_turned_off(): void

@@ -46,7 +46,7 @@ class AiCardBackgroundSourceTest extends TestCase
         $this->assertSame('fake', $image->meta['generator']);
         $prompt = (string) $generator->last?->prompt;
         $this->assertStringStartsWith('A flying car stuck in Dhaka power lines', $prompt);
-        $this->assertStringContainsString('surreal satirical', $prompt);
+        $this->assertStringContainsString('satirical editorial photo', $prompt);
         $this->assertStringContainsString('no text', $prompt);
         $this->assertSame([1080, 810, 2], [$generator->last->width, $generator->last->height, $generator->last->variation]);
     }

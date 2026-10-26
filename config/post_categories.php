@@ -64,7 +64,7 @@ return [
             'tone' => 'Dry, witty sarcasm aimed at the situation or policy, not at private individuals. Keep it short and clever, and keep the underlying facts accurate.',
             'theme' => 'dark',
             'accent' => '#FACC15',
-            'image_style' => 'surreal satirical concept art, cinematic',
+            'image_style' => 'satirical editorial photo with one exaggerated detail, cinematic',
         ],
         'techy' => [
             'label' => 'Techy',

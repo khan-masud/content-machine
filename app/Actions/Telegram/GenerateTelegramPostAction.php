@@ -510,10 +510,13 @@ class GenerateTelegramPostAction
             "বিদ্যুৎ বিল বাড়ল, কিন্তু [[কারেন্ট গেল]] সন্ধ্যায়". Set "source" to
             "সোর্স: <publication>" (or "Source: <publication>" in English) when the
             source material names a publication or organisation, otherwise "".
-            Write "image_prompt" in English: one sentence describing a photo-like
-            background scene for the card (setting, objects, mood). Never depict
-            real, identifiable people such as politicians or celebrities, and no
-            text or logos. Write "image_query" as 2-4 English stock-photo search
+            Write "image_prompt" in English: one sentence describing a concrete,
+            photo-like background scene that a reader would connect to the
+            headline's subject at a glance: the place, objects, or situation it is
+            about (setting, objects, mood). Prefer places and objects; show people
+            only from behind, far away, or as silhouettes, and show children only
+            when the source is about children. Never depict real, identifiable
+            people such as politicians or celebrities, and no text or logos. Write "image_query" as 2-4 English stock-photo search
             words.
             PROMPT;
 
