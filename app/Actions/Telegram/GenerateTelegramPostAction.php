@@ -96,6 +96,13 @@ class GenerateTelegramPostAction
         }
 
         $ownHeadline = $this->ownCardHeadline($request, $entry);
+        // With /card avatar the photo is the person on the card, not the
+        // background, so the draft is written from the headline alone.
+        $avatarImage = $request->mode === TelegramPostRequest::MODE_CARD_AVATAR ? $this->sourceImage($entry) : null;
+
+        if ($avatarImage !== null && $ownHeadline === null) {
+            return $this->fail($request, 'Write the card headline after /card avatar, as the photo\'s caption.', $workLeaseId);
+        }
 
         if ($ownHeadline !== null && mb_strlen($ownHeadline) > PostPhotoCardTextData::HEADLINE_MAX) {
             return $this->fail($request, 'The card text is too long. Keep it under '.PostPhotoCardTextData::HEADLINE_MAX.' characters.', $workLeaseId);
@@ -103,7 +110,7 @@ class GenerateTelegramPostAction
 
         $languages = $this->generationLanguages($request);
 
-        $result = $entry->kind === 'photo'
+        $result = $entry->kind === 'photo' && $avatarImage === null
             ? $this->completeFromPhoto($request, $sourceText, $languages, $workLeaseId, $ownHeadline)
             : $this->completeFromText($request, $sourceText, $languages, $workLeaseId, $ownHeadline);
 
@@ -128,7 +135,7 @@ class GenerateTelegramPostAction
             $draft['card'] = $draft['card']->withOwnHeadline($ownHeadline);
         }
 
-        $image = $this->sourceImage($entry);
+        $image = $avatarImage === null ? $this->sourceImage($entry) : null;
         $imageName = $image?->original_filename ?: ($image === null ? null : basename($image->path));
         $captions = $this->captions($draft, $imageName);
 
@@ -137,7 +144,7 @@ class GenerateTelegramPostAction
         }
 
         /** @var array{request: TelegramPostRequest, post: Post}|null $generated */
-        $generated = DB::transaction(function () use ($request, $draft, $captions, $image, $languages, $workLeaseId): ?array {
+        $generated = DB::transaction(function () use ($request, $draft, $captions, $image, $avatarImage, $languages, $workLeaseId): ?array {
             // Serialize finalization with /cancel. If cancellation acquired the
             // row first, no post is created; if this transaction acquired it
             // first, cancellation waits until the request is linked to the
@@ -156,7 +163,8 @@ class GenerateTelegramPostAction
                 [
                     'title' => $draft['title'],
                     'category' => $lockedRequest->category ?? $draft['category'],
-                    'photo_card' => $draft['card']->toCardFields(),
+                    'photo_card' => $draft['card']->toCardFields()
+                        + ($avatarImage === null ? [] : ['avatar_media_asset_id' => $avatarImage->id]),
                     'language' => count($languages) > 1 ? 'both' : $languages[0],
                     'slug' => Str::slug($draft['title']),
                     'body' => $draft['variants'][$this->primaryLanguage($languages)]['body'],
@@ -549,7 +557,7 @@ class GenerateTelegramPostAction
      */
     private function ownCardHeadline(TelegramPostRequest $request, ScratchpadEntry $entry): ?string
     {
-        if ($request->mode !== TelegramPostRequest::MODE_CARD || ! in_array($entry->kind, ['text', 'photo'], true)) {
+        if (! in_array($request->mode, TelegramPostRequest::CARD_MODES, true) || ! in_array($entry->kind, ['text', 'photo'], true)) {
             return null;
         }
 

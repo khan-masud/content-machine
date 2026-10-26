@@ -262,6 +262,46 @@ class GenerateTelegramPostActionTest extends TestCase
         $this->assertTrue($completion->visionCalled);
     }
 
+    public function test_card_avatar_makes_the_photo_the_avatar_not_the_background(): void
+    {
+        Queue::fake();
+        Storage::fake('scratchpad');
+        Storage::disk('scratchpad')->put('images/pori.jpg', 'image-bytes');
+
+        $workspace = Workspace::factory()->create();
+        $config = TelegramBotConfig::factory()->connected()->create(['workspace_id' => $workspace->id]);
+        AiProviderCredential::factory()->withModel()->create(['workspace_id' => $workspace->id]);
+        $entry = ScratchpadEntry::factory()->create([
+            'workspace_id' => $workspace->id,
+            'kind' => 'photo',
+            'source' => 'telegram',
+            'body' => 'পরীমনির বাসায় আগুন',
+        ]);
+        $media = MediaAsset::factory()->create(['workspace_id' => $workspace->id, 'disk' => 'scratchpad', 'path' => 'images/pori.jpg']);
+        Attachment::factory()->create([
+            'attachable_type' => $entry->getMorphClass(),
+            'attachable_id' => $entry->id,
+            'media_asset_id' => $media->id,
+            'role' => 'image',
+        ]);
+        $request = TelegramPostRequest::factory()->create([
+            'workspace_id' => $workspace->id,
+            'telegram_bot_config_id' => $config->id,
+            'source_scratchpad_entry_id' => $entry->id,
+            'state' => TelegramPostRequest::GENERATING,
+            'mode' => TelegramPostRequest::MODE_CARD_AVATAR,
+        ]);
+        $completion = new FakePostCompletionClient($this->draftJson(['card' => ['headline' => 'পরীমনির বাসায় [[আগুন]]', 'image_prompt' => 'A burning apartment window at night']]));
+
+        $post = $this->generate($request, $completion);
+
+        $this->assertInstanceOf(Post::class, $post);
+        $this->assertFalse($completion->visionCalled);
+        $this->assertSame(0, $post->attachments()->count());
+        $this->assertSame($media->id, $post->photo_card['avatar_media_asset_id']);
+        $this->assertSame('পরীমনির বাসায় [[আগুন]]', $post->photo_card['headline']);
+    }
+
     public function test_cancellation_during_completion_does_not_create_a_post(): void
     {
         Queue::fake();

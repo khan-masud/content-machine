@@ -79,6 +79,7 @@ class HandleTelegramUpdateAction
         /post [category] <text>: create a draft, or send the next photo/voice/audio
         /approve P-123: approve a generated draft
         /card [category] <text>: a photo card with exactly this headline
+        /card avatar <text> (photo caption): the photo becomes the card's avatar
         /recard P-123: new background and photo card for a draft
         /post_now P-123 (or /post-now P-123): publish an approved draft now
         /schedule P-123 YYYY-MM-DD HH:MM: schedule an approved draft

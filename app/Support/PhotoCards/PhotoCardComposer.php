@@ -12,10 +12,17 @@ use Illuminate\Support\Facades\Storage;
 /**
  * Turns a post (or a sample, for the brand settings preview) plus the
  * workspace brand into the PhotoCardData a renderer draws. This is the only
- * place that decides colours, fonts, logo, and background for a card.
+ * place that decides colours, fonts, logo, background, and avatar for a card.
  */
 class PhotoCardComposer
 {
+    private readonly CardPeopleMatcher $people;
+
+    public function __construct(?CardPeopleMatcher $people = null)
+    {
+        $this->people = $people ?? new CardPeopleMatcher;
+    }
+
     public function forPost(Post $post): PhotoCardData
     {
         $workspace = $post->workspace;
@@ -40,7 +47,30 @@ class PhotoCardComposer
             $source,
             $background['path'] ?? null,
             $background['source'] ?? null,
+            $this->avatarPath($workspace, $card, $headline),
         );
+    }
+
+    /**
+     * The card's own avatar (a photo sent with /card avatar), else the photo
+     * of the library person the headline names. `avatar: false` turns it off.
+     *
+     * @param  array<string, mixed>  $card
+     */
+    private function avatarPath(Workspace $workspace, array $card, string $headline): ?string
+    {
+        if (($card['avatar'] ?? null) === false) {
+            return null;
+        }
+
+        $mediaId = $card['avatar_media_asset_id'] ?? null;
+        if (is_int($mediaId)) {
+            return $this->localPath($workspace, $mediaId);
+        }
+
+        $person = $this->people->match($workspace->id, $headline);
+
+        return $person === null ? null : $this->localPath($workspace, $person->media_asset_id);
     }
 
     /**
@@ -91,6 +121,7 @@ class PhotoCardComposer
         ?string $source,
         ?string $backgroundPath,
         ?string $backgroundSource = null,
+        ?string $avatarPath = null,
     ): PhotoCardData {
         $brand = BrandConfig::fromWorkspace($workspace);
         $style = $brand->categoryStyle($category);
@@ -120,6 +151,7 @@ class PhotoCardComposer
             width: (int) config('photo_cards.width'),
             height: (int) config('photo_cards.height'),
             backgroundHeight: self::backgroundHeight(),
+            avatarPath: $avatarPath,
         );
     }
 

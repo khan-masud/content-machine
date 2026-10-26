@@ -25,6 +25,9 @@ use Illuminate\Support\Facades\DB;
  */
 class StartTelegramPostAction
 {
+    /** Words that turn /card into /card avatar. */
+    private const AVATAR_WORDS = ['avatar', 'অ্যাভাটার', 'অবতার'];
+
     public function __construct(
         private readonly CaptureTelegramMessageAction $captureTelegramMessageAction,
     ) {}
@@ -55,6 +58,15 @@ class StartTelegramPostAction
         }
 
         [$category, $instruction] = PostCategories::splitLeading($instruction);
+
+        // "/card avatar <headline>" (the keyword before or after a category).
+        if ($mode === TelegramPostRequest::MODE_CARD && $this->startsWithAvatar($instruction)) {
+            $mode = TelegramPostRequest::MODE_CARD_AVATAR;
+            $instruction = $this->withoutFirstWord($instruction);
+            if ($category === null) {
+                [$category, $instruction] = PostCategories::splitLeading($instruction);
+            }
+        }
 
         return DB::transaction(function () use (
             $config,
@@ -222,6 +234,20 @@ class StartTelegramPostAction
         });
     }
 
+    private function startsWithAvatar(?string $instruction): bool
+    {
+        $first = mb_strtolower(preg_split('/\s+/u', trim((string) $instruction))[0] ?? '');
+
+        return in_array($first, self::AVATAR_WORDS, true);
+    }
+
+    private function withoutFirstWord(?string $instruction): string
+    {
+        $parts = preg_split('/\s+/u', trim((string) $instruction), 2);
+
+        return trim($parts[1] ?? '');
+    }
+
     /**
      * @param  array<string, mixed>  $update
      * @return array<string, mixed>
@@ -267,10 +293,16 @@ class StartTelegramPostAction
         $commandText = $message['text'] ?? $message['caption'] ?? null;
 
         if (! is_string($commandText)
-            || preg_match('/^\/(?:post|card)(?:@[A-Za-z0-9_]+)?(?:\s+(\S+))?$/iu', trim($commandText), $matches) !== 1
-            || (isset($matches[1]) && PostCategories::fromAlias($matches[1]) === null)
+            || preg_match('/^\/(?:post|card)(?:@[A-Za-z0-9_]+)?((?:\s+\S+){0,2})$/iu', trim($commandText), $matches) !== 1
         ) {
             return $update;
+        }
+
+        // Only a category word and/or the avatar keyword may follow it.
+        foreach (preg_split('/\s+/u', trim($matches[1]), -1, PREG_SPLIT_NO_EMPTY) ?: [] as $word) {
+            if (PostCategories::fromAlias($word) === null && ! in_array(mb_strtolower($word), self::AVATAR_WORDS, true)) {
+                return $update;
+            }
         }
 
         if (isset($message['photo']) || isset($message['voice']) || isset($message['audio'])) {

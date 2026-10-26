@@ -58,6 +58,12 @@ class TelegramPostRequest extends Model
     /** /card: the person's text is the card headline, word for word. */
     public const MODE_CARD = 'card';
 
+    /** /card avatar: like card, and the attached photo is the card's avatar. */
+    public const MODE_CARD_AVATAR = 'card_avatar';
+
+    /** @var list<string> */
+    public const CARD_MODES = [self::MODE_CARD, self::MODE_CARD_AVATAR];
+
     /**
      * @var list<string>
      */

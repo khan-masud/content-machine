@@ -9,6 +9,10 @@ once it reaches 1.0.
 ## [Unreleased]
 
 ### Added
+- Card avatars: Settings → Card people keeps a photo library (name, other
+  spellings, photo). A card whose headline names someone shows their photo
+  as a round avatar. Telegram `/card avatar <headline>` as a photo caption
+  uses that photo as the avatar for one card.
 - Telegram `/card [category] <text>`: a photo card with your own headline,
   word for word; the AI only adds accent words, a matching background, and
   captions. As a photo caption, the photo becomes the background.
