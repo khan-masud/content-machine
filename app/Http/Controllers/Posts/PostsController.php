@@ -7,6 +7,7 @@ use App\Data\Posts\UpdatePostData;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Posts\UpdatePostRequest;
 use App\Models\Attachment;
+use App\Models\FacebookPublication;
 use App\Models\Idea;
 use App\Models\MediaAsset;
 use App\Models\Post;
@@ -14,6 +15,7 @@ use App\Models\Workspace;
 use App\Support\Content\NormalizeCaptions;
 use App\Support\Content\PostWorkspaceBuckets;
 use App\Support\Content\PresenceFlags;
+use App\Support\Facebook\FacebookConfig;
 use App\Support\Media\PostDesignTemplate;
 use App\Support\PhotoCards\PhotoCardComposer;
 use App\Support\Posts\PostCategories;
@@ -201,6 +203,34 @@ class PostsController extends Controller
         ]);
 
         return to_route('posts.show', $post);
+    }
+
+    /**
+     * @return array{ready: bool, page_name: ?string, publication: array<string, mixed>|null}
+     */
+    private function presentFacebook(Post $post): array
+    {
+        $workspace = $post->workspace;
+        $config = $workspace === null ? null : FacebookConfig::fromWorkspace($workspace);
+        $publication = FacebookPublication::query()
+            ->where('post_id', $post->id)
+            ->where('state', '!=', FacebookPublication::CANCELLED)
+            ->latest('id')
+            ->first();
+
+        return [
+            'ready' => $config?->isReady() ?? false,
+            'page_name' => $config?->pageName(),
+            'publication' => $publication === null ? null : [
+                'id' => $publication->id,
+                'state' => $publication->state,
+                'scheduled_for' => $publication->scheduled_for?->toIso8601String(),
+                'published_at' => $publication->published_at?->toIso8601String(),
+                'permalink' => $publication->permalink,
+                'error' => $publication->error,
+                'comment_error' => $publication->comment_error,
+            ],
+        ];
     }
 
     /**
@@ -424,6 +454,7 @@ class PostsController extends Controller
             'template_meta' => PostDesignTemplate::tryFrom($post->template)?->toArray(),
             'category' => $post->category,
             'photo_card' => $this->presentPhotoCard($post),
+            'facebook' => $this->presentFacebook($post),
             'status' => $post->status,
             'blocked_reason' => $post->blocked_reason,
             'publish_state' => $post->publish_state,

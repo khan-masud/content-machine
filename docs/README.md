@@ -9,5 +9,6 @@
   - [PostSyncer](guides/postsyncer.md)
   - [Post categories and free AI setup](guides/post-categories.md)
   - [Photo cards and brand settings](guides/photo-cards.md)
+  - [Facebook Page publishing](guides/facebook-page.md)
 - [Architecture Decision Records](adr/)
   - [0001: Webhook, not polling](adr/0001-webhook-not-polling.md)

@@ -73,7 +73,8 @@ and Pollinations unchecked, only link and Pexels images are used.
 
 The PNG is stored as a workspace media asset and referenced from
 `posts.photo_card`, not attached to the post, so the PostSyncer publish path is
-unchanged.
+unchanged. [Facebook Page publishing](facebook-page.md) posts the card as the
+image.
 
 ## Settings → Brand
 

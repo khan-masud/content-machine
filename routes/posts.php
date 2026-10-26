@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Posts\ApprovePostController;
+use App\Http\Controllers\Posts\PostFacebookPublicationController;
 use App\Http\Controllers\Posts\PostPhotoCardController;
 use App\Http\Controllers\Posts\PostsController;
 use App\Http\Controllers\Posts\PublishPostController;
@@ -17,6 +18,10 @@ Route::middleware(['auth', 'verified', SetCurrentWorkspace::class])
         Route::get('posts/{post}/card', [PostPhotoCardController::class, 'show'])->name('posts.card.show');
         Route::post('posts/{post}/card', [PostPhotoCardController::class, 'store'])->name('posts.card.store');
         Route::post('posts/{post}/card/background', [PostPhotoCardController::class, 'background'])->name('posts.card.background');
+        Route::post('posts/{post}/facebook', [PostFacebookPublicationController::class, 'store'])->name('posts.facebook.store');
+        Route::post('posts/{post}/facebook/{publication}/cancel', [PostFacebookPublicationController::class, 'cancel'])->name('posts.facebook.cancel');
+        Route::post('posts/{post}/facebook/{publication}/retry', [PostFacebookPublicationController::class, 'retry'])->name('posts.facebook.retry');
+        Route::post('posts/{post}/facebook/{publication}/mark-published', [PostFacebookPublicationController::class, 'markPublished'])->name('posts.facebook.mark-published');
         Route::post('posts/{post}/approve', ApprovePostController::class)->name('posts.approve');
         Route::post('posts/{post}/publish', PublishPostController::class)->name('posts.publish');
         Route::post('posts/{post}/reconcile', ReconcilePostPublishController::class)->name('posts.reconcile');

@@ -29,6 +29,14 @@ once it reaches 1.0.
   AI prompts never depict identifiable people). Settings → Image AI holds the
   Cloudflare credentials. "New background" on the post page and Telegram
   `/recard P-123` fetch a different image and re-render the card.
+- Facebook Page publishing with Content Machine's own scheduler: approved
+  posts go to the workspace's Page with the photo card and Facebook caption,
+  then the first comment. Publish now or schedule from the post page, or via
+  Telegram `/post_now` and `/schedule` when the Page is connected
+  (Settings → Facebook verifies and encrypts the Page token).
+  `facebook:publish-due` runs every minute; a lost Graph API answer becomes
+  "uncertain" and is never re-sent without a person checking the Page.
+  Guide: [docs/guides/facebook-page.md](docs/guides/facebook-page.md).
 - Workspace API tokens: hashed bearer tokens minted/revoked from the Team
   page, with per-token abilities (scratchpad:read/write, ideas:read/write).
 - JSON API under `/api/v1` for the Scratch Pad and Ideas: list/show/capture

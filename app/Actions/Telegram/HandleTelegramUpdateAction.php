@@ -3,7 +3,6 @@
 namespace App\Actions\Telegram;
 
 use App\Actions\Posts\ApprovePostAction;
-use App\Actions\Postsyncer\EnqueuePostPublishAction;
 use App\Actions\Scratchpad\CaptureTextNoteAction;
 use App\Actions\Scratchpad\DeleteRecentScratchpadEntriesAction;
 use App\Data\Scratchpad\CaptureTextNoteData;
@@ -17,6 +16,7 @@ use App\Models\TelegramUpdate;
 use App\Models\Video;
 use App\Models\Workspace;
 use App\Support\Posts\PostCategories;
+use App\Support\Publishing\PostPublishChannels;
 use App\Support\Telegram\TelegramClientContract;
 use App\Support\Telegram\TelegramUpdateKey;
 use Carbon\CarbonImmutable;
@@ -110,7 +110,7 @@ class HandleTelegramUpdateAction
         private readonly TelegramClientContract $client,
         private readonly ?StartTelegramPostAction $startTelegramPostAction = null,
         private readonly ?ApprovePostAction $approvePostAction = null,
-        private readonly ?EnqueuePostPublishAction $enqueuePostPublishAction = null,
+        private readonly ?PostPublishChannels $publishChannels = null,
         private readonly ?CancelTelegramPostRequestAction $cancelTelegramPostRequestAction = null,
         private readonly ?QueueTelegramMessageAction $queueTelegramMessageAction = null,
         private readonly ?ResolveTelegramWorkspaceActionAction $resolveWorkspaceAction = null,
@@ -855,10 +855,7 @@ class HandleTelegramUpdateAction
                     return;
                 }
 
-                $this->enqueuePostPublishAction()->handle($post, $config->workspace, [
-                    'confirm_ask' => true,
-                    'telegram_request_id' => $request->id,
-                ]);
+                $this->publishChannels()->forWorkspace($config->workspace)->enqueue($post, $config->workspace, null, $request->id);
 
                 $this->reply($config, $chatId, "🚀 {$post->human_id} is queued for immediate publishing.");
             });
@@ -926,11 +923,12 @@ class HandleTelegramUpdateAction
                     return;
                 }
 
-                $this->enqueuePostPublishAction()->handle($post, $config->workspace, [
-                    'when' => $when,
-                    'confirm_ask' => true,
-                    'telegram_request_id' => $request->id,
-                ]);
+                $this->publishChannels()->forWorkspace($config->workspace)->enqueue(
+                    $post,
+                    $config->workspace,
+                    CarbonImmutable::parse($when),
+                    $request->id,
+                );
 
                 $this->reply($config, $chatId, "🗓️ {$post->human_id} is queued for {$when} ({$config->workspace->timezone}).");
             });
@@ -1188,9 +1186,9 @@ class HandleTelegramUpdateAction
         return $this->approvePostAction ?? app(ApprovePostAction::class);
     }
 
-    private function enqueuePostPublishAction(): EnqueuePostPublishAction
+    private function publishChannels(): PostPublishChannels
     {
-        return $this->enqueuePostPublishAction ?? app(EnqueuePostPublishAction::class);
+        return $this->publishChannels ?? app(PostPublishChannels::class);
     }
 
     private function cancelPostRequestAction(): CancelTelegramPostRequestAction

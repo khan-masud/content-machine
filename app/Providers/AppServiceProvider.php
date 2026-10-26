@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Contracts\FacebookPageClient;
 use App\Contracts\ImageGenerator;
 use App\Contracts\PexelsProvider;
 use App\Contracts\PexelsProviderFactory;
@@ -15,6 +16,7 @@ use App\Support\AiProviders\HttpAiProviderVerifier;
 use App\Support\AiProviders\OpenAiTranscriptionClient;
 use App\Support\CurrentApiToken;
 use App\Support\CurrentWorkspace;
+use App\Support\Facebook\HttpFacebookPageClient;
 use App\Support\ImageAi\CloudflareImageGenerator;
 use App\Support\ImageAi\ImageGeneratorChain;
 use App\Support\ImageAi\PollinationsImageGenerator;
@@ -57,6 +59,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(TelegramPhotoSenderContract::class, HttpTelegramClient::class);
         $this->app->bind(PhotoCardRenderer::class, PillowPhotoCardRenderer::class);
         $this->app->bind(PexelsProviderFactory::class, HttpPexelsProviderFactory::class);
+        $this->app->bind(FacebookPageClient::class, HttpFacebookPageClient::class);
         $this->app->bind(ImageGenerator::class, fn ($app): ImageGenerator => new ImageGeneratorChain([
             $app->make(CloudflareImageGenerator::class),
             $app->make(PollinationsImageGenerator::class),

@@ -3,6 +3,8 @@ import { ArrowUpRight } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import PublishDialog from '@/components/content/publish-dialog';
 import TemplatePreview from '@/components/media/template-preview';
+import FacebookPublishPane from '@/components/studio/facebook-publish-pane';
+import type { FacebookPublishState } from '@/components/studio/facebook-publish-pane';
 import {
     PlatformChipRow,
     WorkspacePlatformChips,
@@ -56,6 +58,7 @@ type Props = {
     category?: string | null;
     categories?: PostCategoryOption[];
     photoCard?: PostPhotoCard | null;
+    facebook?: FacebookPublishState | null;
     workspaces?: WorkspaceBucket[];
     publishUrl: string;
     postsyncerReady: boolean;
@@ -242,6 +245,7 @@ export default function PostOverview({
     category = null,
     categories = [],
     photoCard = null,
+    facebook = null,
     workspaces,
     publishUrl,
     postsyncerReady,
@@ -420,6 +424,14 @@ export default function PostOverview({
                         ))}
                     </select>
                 </section>
+            )}
+            {facebook && (
+                <FacebookPublishPane
+                    postId={postId}
+                    facebook={facebook}
+                    approvalState={approvalState}
+                    timezone={effectiveTimezone}
+                />
             )}
             {photoCard && (
                 <section className="pane">
