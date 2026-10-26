@@ -40,20 +40,32 @@ A job that dies mid-send is marked uncertain after 10 minutes by
 
 You need to be an admin of the Page.
 
-1. Go to <https://developers.facebook.com/apps>, **Create app**, pick the
-   *Other* use case and the *Business* type. Development mode is fine for your
-   own Page; no App Review is needed while only you use it.
-2. Open **Graph API Explorer**
+1. Go to <https://developers.facebook.com/apps> and **Create app**. Under
+   **Content management**, pick the **Manage everything on your Page** use
+   case (or *Other*, then the *Business* type). Skip the business portfolio.
+   Leave the app unpublished (development mode): no App Review is needed
+   while only you use it.
+2. In the app, open **Use cases → Manage everything on your Page →
+   Customize** and add `pages_show_list`, `pages_read_engagement`,
+   `pages_manage_posts`, `pages_manage_engagement`, and
+   `pages_read_user_content`. The first comment needs
+   `pages_manage_engagement`, and Meta requires `pages_read_user_content`
+   alongside it.
+3. Open **Graph API Explorer**
    (<https://developers.facebook.com/tools/explorer>), select your app, choose
-   **User Token**, and add the permissions `pages_show_list`,
-   `pages_read_engagement`, and `pages_manage_posts`. Click **Generate Access
-   Token** and allow access to your Page.
-3. Make it long-lived: open the **Access Token Debugger**
+   **User Token**, and add the same permissions. Click **Generate Access
+   Token**, choose **Opt in to current Pages only**, and tick only the Page
+   you will publish to.
+4. Make it long-lived: open the **Access Token Debugger**
    (<https://developers.facebook.com/tools/debug/accesstoken>), paste the
-   token, and click **Extend Access Token**.
-4. Back in Graph API Explorer, with the long-lived token, run
-   `GET /me/accounts`. Copy your Page's `id` and `access_token`.
-5. Check the Page token in the Access Token Debugger: **Expires: Never**.
+   token, and click **Extend Access Token**. Put the extended token back in
+   Graph API Explorer.
+5. Run `GET /me/accounts` and copy your Page's `id` and `access_token`. If
+   `data` comes back empty (common for Pages managed through a business
+   portfolio), find the Page ID under the Page's **About → Page
+   transparency** and run `GET /{page-id}?fields=name,access_token` instead.
+6. Check the Page token in the Access Token Debugger: **Type: Page** and
+   **Expires: Never**.
 
 Paste the Page id and token in **Settings → Facebook**, choose the caption
 language, tick **Publish to this Page**, and save. Content Machine checks the
