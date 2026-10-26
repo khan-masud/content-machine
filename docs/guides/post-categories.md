@@ -43,11 +43,14 @@ well, and exposes an OpenAI-compatible endpoint, so it works with the existing
    preset. It fills the provider format (OpenAI-style), the label, and the base
    URL `https://generativelanguage.googleapis.com/v1beta/openai`.
 3. Paste the key, save, then **Verify** to load the model list.
-4. Add a Flash model (for example `gemini-2.5-flash`) to the default chain, and
-   to the vision chain if you want photo drafts.
+4. Add a Flash or Flash-Lite model from the loaded list to the default
+   chain, and to the vision chain if you want photo drafts. Pick from the list
+   the provider returns rather than a remembered name: Google retires and
+   renames models often, and only some of them are on the free tier.
 
 The **Groq** preset (`https://api.groq.com/openai/v1`) is a second free option
-for text. Free-tier limits and terms change; check them in each provider's
+for text (for example `openai/gpt-oss-120b`; Groq retired its Llama 3.3
+models in 2026). Free-tier limits and terms change; check them in each provider's
 console. Google may use free-tier prompts to improve its products.
 
 Groq also transcribes voice notes for free with Whisper (`whisper-large-v3`).
