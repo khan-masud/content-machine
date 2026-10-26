@@ -95,11 +95,24 @@ class GenerateTelegramPostAction
                 : 'The source did not contain any text to turn into a post.', $workLeaseId);
         }
 
+        $ownHeadline = $this->ownCardHeadline($request, $entry);
+        // With /card avatar the photo is the person on the card, not the
+        // background, so the draft is written from the headline alone.
+        $avatarImage = $request->mode === TelegramPostRequest::MODE_CARD_AVATAR ? $this->sourceImage($entry) : null;
+
+        if ($avatarImage !== null && $ownHeadline === null) {
+            return $this->fail($request, 'Write the card headline after /card avatar, as the photo\'s caption.', $workLeaseId);
+        }
+
+        if ($ownHeadline !== null && mb_strlen($ownHeadline) > PostPhotoCardTextData::HEADLINE_MAX) {
+            return $this->fail($request, 'The card text is too long. Keep it under '.PostPhotoCardTextData::HEADLINE_MAX.' characters.', $workLeaseId);
+        }
+
         $languages = $this->generationLanguages($request);
 
-        $result = $entry->kind === 'photo'
-            ? $this->completeFromPhoto($request, $sourceText, $languages, $workLeaseId)
-            : $this->completeFromText($request, $sourceText, $languages, $workLeaseId);
+        $result = $entry->kind === 'photo' && $avatarImage === null
+            ? $this->completeFromPhoto($request, $sourceText, $languages, $workLeaseId, $ownHeadline)
+            : $this->completeFromText($request, $sourceText, $languages, $workLeaseId, $ownHeadline);
 
         if (! $result->successful || $result->text === null) {
             return $this->fail($request, 'I could not create the draft right now. Check the AI model settings and try again.', $workLeaseId);
@@ -118,7 +131,11 @@ class GenerateTelegramPostAction
             return $this->fail($request, 'The AI returned an unusable draft. Please try generating it again.', $workLeaseId);
         }
 
-        $image = $this->sourceImage($entry);
+        if ($ownHeadline !== null) {
+            $draft['card'] = $draft['card']->withOwnHeadline($ownHeadline);
+        }
+
+        $image = $avatarImage === null ? $this->sourceImage($entry) : null;
         $imageName = $image?->original_filename ?: ($image === null ? null : basename($image->path));
         $captions = $this->captions($draft, $imageName);
 
@@ -127,7 +144,7 @@ class GenerateTelegramPostAction
         }
 
         /** @var array{request: TelegramPostRequest, post: Post}|null $generated */
-        $generated = DB::transaction(function () use ($request, $draft, $captions, $image, $languages, $workLeaseId): ?array {
+        $generated = DB::transaction(function () use ($request, $draft, $captions, $image, $avatarImage, $languages, $workLeaseId): ?array {
             // Serialize finalization with /cancel. If cancellation acquired the
             // row first, no post is created; if this transaction acquired it
             // first, cancellation waits until the request is linked to the
@@ -146,7 +163,8 @@ class GenerateTelegramPostAction
                 [
                     'title' => $draft['title'],
                     'category' => $lockedRequest->category ?? $draft['category'],
-                    'photo_card' => $draft['card']->toCardFields(),
+                    'photo_card' => $draft['card']->toCardFields()
+                        + ($avatarImage === null ? [] : ['avatar_media_asset_id' => $avatarImage->id]),
                     'language' => count($languages) > 1 ? 'both' : $languages[0],
                     'slug' => Str::slug($draft['title']),
                     'body' => $draft['variants'][$this->primaryLanguage($languages)]['body'],
@@ -197,6 +215,7 @@ class GenerateTelegramPostAction
         string $sourceText,
         array $languages,
         ?string $workLeaseId = null,
+        ?string $ownHeadline = null,
     ): AiCompletionResult {
         $userContent = "Source language hint: {$this->languageForRequest($request)}\n\nSource material:\n{$sourceText}";
 
@@ -205,7 +224,7 @@ class GenerateTelegramPostAction
                 return AiCompletionResult::failure('The Telegram post-generation lease expired.');
             }
 
-            $result = $this->completionClient->complete($model, $this->systemPrompt($languages, $request->category, $this->cardLanguage($request)), $userContent);
+            $result = $this->completionClient->complete($model, $this->systemPrompt($languages, $request->category, $this->cardLanguage($request), $ownHeadline), $userContent);
 
             if ($result->successful) {
                 return $result;
@@ -223,6 +242,7 @@ class GenerateTelegramPostAction
         string $sourceText,
         array $languages,
         ?string $workLeaseId = null,
+        ?string $ownHeadline = null,
     ): AiCompletionResult {
         $image = $this->sourceImage($request->sourceEntry);
 
@@ -245,7 +265,7 @@ class GenerateTelegramPostAction
 
             $result = $this->visionClient->completeWithImage(
                 $model,
-                $this->systemPrompt($languages, $request->category, $this->cardLanguage($request)),
+                $this->systemPrompt($languages, $request->category, $this->cardLanguage($request), $ownHeadline),
                 $userContent,
                 $image->mime,
                 $contents,
@@ -477,7 +497,7 @@ class GenerateTelegramPostAction
     /**
      * @param  list<string>  $languages
      */
-    private function systemPrompt(array $languages, ?string $category = null, string $cardLanguage = 'bn'): string
+    private function systemPrompt(array $languages, ?string $category = null, string $cardLanguage = 'bn', ?string $ownHeadline = null): string
     {
         $cardLanguageName = $cardLanguage === 'en' ? 'English' : 'Bangla (Bengali script)';
         $languageList = implode(', ', $languages);
@@ -510,14 +530,40 @@ class GenerateTelegramPostAction
             "বিদ্যুৎ বিল বাড়ল, কিন্তু [[কারেন্ট গেল]] সন্ধ্যায়". Set "source" to
             "সোর্স: <publication>" (or "Source: <publication>" in English) when the
             source material names a publication or organisation, otherwise "".
-            Write "image_prompt" in English: one sentence describing a photo-like
-            background scene for the card (setting, objects, mood). Never depict
-            real, identifiable people such as politicians or celebrities, and no
-            text or logos. Write "image_query" as 2-4 English stock-photo search
+            Write "image_prompt" in English: one sentence describing a concrete,
+            photo-like background scene that a reader would connect to the
+            headline's subject at a glance: the place, objects, or situation it is
+            about (setting, objects, mood). Prefer places and objects; show people
+            only from behind, far away, or as silhouettes, and show children only
+            when the source is about children. Never depict real, identifiable
+            people such as politicians or celebrities, and no text or logos. Write "image_query" as 2-4 English stock-photo search
             words.
             PROMPT;
 
-        return str_replace('__VARIANTS__', $variantShape, $prompt)."\n\n".$this->categoryPrompt($category);
+        return str_replace('__VARIANTS__', $variantShape, $prompt)."\n\n".$this->categoryPrompt($category)
+            .($ownHeadline === null ? '' : "\n\n".$this->ownHeadlinePrompt($ownHeadline));
+    }
+
+    private function ownHeadlinePrompt(string $headline): string
+    {
+        return 'The person wrote the card headline themselves: "'.$headline.'". Use it as "headline" '.
+            'word for word, only wrapping its 1-3 most important words in [[ ]]. Write "image_prompt", '.
+            '"image_query", the body, and the captions about that headline.';
+    }
+
+    /**
+     * /card text (or a photo's caption) is the headline as written; other
+     * sources, such as a link or a voice note, get an AI-written headline.
+     */
+    private function ownCardHeadline(TelegramPostRequest $request, ScratchpadEntry $entry): ?string
+    {
+        if (! in_array($request->mode, TelegramPostRequest::CARD_MODES, true) || ! in_array($entry->kind, ['text', 'photo'], true)) {
+            return null;
+        }
+
+        $text = trim((string) ($entry->body ?? ''));
+
+        return $text === '' ? null : $text;
     }
 
     private function categoryPrompt(?string $category): string

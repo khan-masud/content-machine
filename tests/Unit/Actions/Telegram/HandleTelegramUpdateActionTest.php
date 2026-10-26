@@ -967,6 +967,45 @@ class HandleTelegramUpdateActionTest extends TestCase
         $this->assertStringContainsString('creating a draft', $this->lastReply());
     }
 
+    public function test_card_command_starts_a_card_mode_request(): void
+    {
+        Queue::fake();
+        $config = TelegramBotConfig::factory()->connected()->create();
+        $user = User::factory()->create();
+        TelegramBotLink::factory()->create([
+            'telegram_bot_config_id' => $config->id,
+            'user_id' => $user->id,
+            'telegram_user_id' => 1,
+        ]);
+
+        $this->action()->handle($config, $this->update(1, '/card funny অফিসের কেটলি আবার নষ্ট'));
+
+        $request = TelegramPostRequest::sole();
+        $this->assertSame(TelegramPostRequest::MODE_CARD, $request->mode);
+        $this->assertSame(TelegramPostRequest::GENERATING, $request->state);
+        $this->assertSame('funny', $request->category);
+        $this->assertSame('অফিসের কেটলি আবার নষ্ট', $request->sourceEntry->body);
+        Queue::assertPushed(GenerateTelegramPostJob::class);
+        $this->assertStringContainsString('making the photo card', $this->lastReply());
+    }
+
+    public function test_bare_card_command_asks_for_the_headline(): void
+    {
+        Queue::fake();
+        $config = TelegramBotConfig::factory()->connected()->create();
+        $user = User::factory()->create();
+        TelegramBotLink::factory()->create([
+            'telegram_bot_config_id' => $config->id,
+            'user_id' => $user->id,
+            'telegram_user_id' => 1,
+        ]);
+
+        $this->action()->handle($config, $this->update(1, '/card'));
+
+        $this->assertSame(TelegramPostRequest::AWAITING_INPUT, TelegramPostRequest::sole()->state);
+        $this->assertStringContainsString('headline you want on the card', $this->lastReply());
+    }
+
     public function test_approve_command_approves_the_latest_generated_draft(): void
     {
         Queue::fake();

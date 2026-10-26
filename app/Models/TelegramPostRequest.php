@@ -26,6 +26,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $state
  * @property string|null $instruction
  * @property string|null $category
+ * @property string $mode
  * @property string|null $error_message
  * @property CarbonImmutable|null $work_claimed_at
  * @property string|null $work_lease_id
@@ -50,6 +51,18 @@ class TelegramPostRequest extends Model
     public const CANCELLED = 'cancelled';
 
     public const FAILED = 'failed';
+
+    /** /post: the AI writes the draft and the card headline. */
+    public const MODE_POST = 'post';
+
+    /** /card: the person's text is the card headline, word for word. */
+    public const MODE_CARD = 'card';
+
+    /** /card avatar: like card, and the attached photo is the card's avatar. */
+    public const MODE_CARD_AVATAR = 'card_avatar';
+
+    /** @var list<string> */
+    public const CARD_MODES = [self::MODE_CARD, self::MODE_CARD_AVATAR];
 
     /**
      * @var list<string>
@@ -76,6 +89,7 @@ class TelegramPostRequest extends Model
         'state',
         'instruction',
         'category',
+        'mode',
         'error_message',
         'work_claimed_at',
         'work_lease_id',

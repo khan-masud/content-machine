@@ -5,7 +5,8 @@ namespace App\Data\PhotoCards;
 /**
  * Everything a renderer needs to draw one card. Paths are absolute local
  * files; colours are #RRGGBB. Words wrapped in [[...]] in the headline are
- * drawn in the accent colour.
+ * drawn in the accent colour. An avatar is a person's photo drawn as a
+ * round inset on the card.
  */
 final readonly class PhotoCardData
 {
@@ -26,6 +27,7 @@ final readonly class PhotoCardData
         public int $width,
         public int $height,
         public int $backgroundHeight,
+        public ?string $avatarPath = null,
     ) {}
 
     /**
@@ -48,6 +50,7 @@ final readonly class PhotoCardData
             'image_label' => $this->imageLabel,
             'colors' => $this->colors,
             'fonts' => $this->fonts,
+            'avatar_path' => $this->avatarPath,
         ];
     }
 }

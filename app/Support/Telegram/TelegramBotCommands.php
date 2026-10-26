@@ -23,6 +23,7 @@ final class TelegramBotCommands
         ['command' => 'notes', 'description' => 'Count and list your active Scratch Pad notes'],
         ['command' => 'note', 'description' => 'Save a Scratch Pad note'],
         ['command' => 'post', 'description' => 'Create a draft: /post [category] text, photo, or audio'],
+        ['command' => 'card', 'description' => 'Photo card with your own headline: /card [category] text'],
         ['command' => 'recard', 'description' => 'New background and photo card for a draft'],
         ['command' => 'approve', 'description' => 'Approve a draft for publishing'],
         ['command' => 'post_now', 'description' => 'Publish an approved draft now'],

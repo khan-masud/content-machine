@@ -262,6 +262,46 @@ class GenerateTelegramPostActionTest extends TestCase
         $this->assertTrue($completion->visionCalled);
     }
 
+    public function test_card_avatar_makes_the_photo_the_avatar_not_the_background(): void
+    {
+        Queue::fake();
+        Storage::fake('scratchpad');
+        Storage::disk('scratchpad')->put('images/pori.jpg', 'image-bytes');
+
+        $workspace = Workspace::factory()->create();
+        $config = TelegramBotConfig::factory()->connected()->create(['workspace_id' => $workspace->id]);
+        AiProviderCredential::factory()->withModel()->create(['workspace_id' => $workspace->id]);
+        $entry = ScratchpadEntry::factory()->create([
+            'workspace_id' => $workspace->id,
+            'kind' => 'photo',
+            'source' => 'telegram',
+            'body' => 'পরীমনির বাসায় আগুন',
+        ]);
+        $media = MediaAsset::factory()->create(['workspace_id' => $workspace->id, 'disk' => 'scratchpad', 'path' => 'images/pori.jpg']);
+        Attachment::factory()->create([
+            'attachable_type' => $entry->getMorphClass(),
+            'attachable_id' => $entry->id,
+            'media_asset_id' => $media->id,
+            'role' => 'image',
+        ]);
+        $request = TelegramPostRequest::factory()->create([
+            'workspace_id' => $workspace->id,
+            'telegram_bot_config_id' => $config->id,
+            'source_scratchpad_entry_id' => $entry->id,
+            'state' => TelegramPostRequest::GENERATING,
+            'mode' => TelegramPostRequest::MODE_CARD_AVATAR,
+        ]);
+        $completion = new FakePostCompletionClient($this->draftJson(['card' => ['headline' => 'পরীমনির বাসায় [[আগুন]]', 'image_prompt' => 'A burning apartment window at night']]));
+
+        $post = $this->generate($request, $completion);
+
+        $this->assertInstanceOf(Post::class, $post);
+        $this->assertFalse($completion->visionCalled);
+        $this->assertSame(0, $post->attachments()->count());
+        $this->assertSame($media->id, $post->photo_card['avatar_media_asset_id']);
+        $this->assertSame('পরীমনির বাসায় [[আগুন]]', $post->photo_card['headline']);
+    }
+
     public function test_cancellation_during_completion_does_not_create_a_post(): void
     {
         Queue::fake();
@@ -461,6 +501,60 @@ class GenerateTelegramPostActionTest extends TestCase
         $this->generate($request, $completion);
 
         $this->assertStringContainsString('6-14 word line in English', $completion->lastSystemPrompt);
+    }
+
+    public function test_card_mode_keeps_the_persons_headline_as_written(): void
+    {
+        Queue::fake();
+        $request = $this->generatingTextRequest(['mode' => TelegramPostRequest::MODE_CARD]);
+        $request->sourceEntry->update(['body' => 'বিদ্যুৎ বিল বাড়ল, কারেন্ট গেল']);
+        // The model rewrote the headline; the person's words win.
+        $completion = new FakePostCompletionClient($this->draftJson(['card' => [
+            'headline' => 'বিল নিয়ে [[হাহাকার]]',
+            'image_prompt' => 'An electricity meter at night',
+        ]]));
+
+        $post = $this->generate($request, $completion);
+
+        $this->assertSame('বিদ্যুৎ বিল বাড়ল, কারেন্ট গেল', $post?->photo_card['headline']);
+        $this->assertSame('An electricity meter at night', $post?->photo_card['image_prompt']);
+        $this->assertStringContainsString('The person wrote the card headline themselves: "বিদ্যুৎ বিল বাড়ল, কারেন্ট গেল"', $completion->lastSystemPrompt);
+    }
+
+    public function test_card_mode_keeps_the_models_accent_brackets_on_the_same_words(): void
+    {
+        Queue::fake();
+        $request = $this->generatingTextRequest(['mode' => TelegramPostRequest::MODE_CARD]);
+        $request->sourceEntry->update(['body' => 'বিদ্যুৎ বিল বাড়ল, কারেন্ট গেল']);
+        $completion = new FakePostCompletionClient($this->draftJson(['card' => ['headline' => 'বিদ্যুৎ বিল বাড়ল, [[কারেন্ট গেল]]']]));
+
+        $post = $this->generate($request, $completion);
+
+        $this->assertSame('বিদ্যুৎ বিল বাড়ল, [[কারেন্ট গেল]]', $post?->photo_card['headline']);
+    }
+
+    public function test_card_mode_rejects_a_headline_that_is_too_long(): void
+    {
+        Queue::fake();
+        $request = $this->generatingTextRequest(['mode' => TelegramPostRequest::MODE_CARD]);
+        $request->sourceEntry->update(['body' => str_repeat('অনেক লম্বা লেখা ', 30)]);
+        $completion = new FakePostCompletionClient($this->draftJson());
+
+        $this->assertNull($this->generate($request, $completion));
+        $this->assertSame(TelegramPostRequest::FAILED, $request->refresh()->state);
+        $this->assertStringContainsString('too long', (string) $request->error_message);
+    }
+
+    public function test_post_mode_lets_the_model_write_the_headline(): void
+    {
+        Queue::fake();
+        $request = $this->generatingTextRequest();
+        $completion = new FakePostCompletionClient($this->draftJson(['card' => ['headline' => 'বিল নিয়ে [[হাহাকার]]']]));
+
+        $post = $this->generate($request, $completion);
+
+        $this->assertSame('বিল নিয়ে [[হাহাকার]]', $post?->photo_card['headline']);
+        $this->assertStringNotContainsString('The person wrote the card headline', $completion->lastSystemPrompt);
     }
 
     public function test_an_unknown_model_category_is_dropped_without_failing_the_draft(): void

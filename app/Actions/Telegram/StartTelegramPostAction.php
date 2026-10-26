@@ -20,10 +20,14 @@ use Illuminate\Support\Facades\DB;
  * caption. Capture still lands in Scratch Pad first, preserving the original
  * source even when generation later fails. A leading category word
  * ("/post sarcasm https://...") is taken off the instruction and kept on the
- * request for generation.
+ * request for generation. /card starts the same flow in card mode, where the
+ * person's text becomes the card headline as written.
  */
 class StartTelegramPostAction
 {
+    /** Words that turn /card into /card avatar. */
+    private const AVATAR_WORDS = ['avatar', 'অ্যাভাটার', 'অবতার'];
+
     public function __construct(
         private readonly CaptureTelegramMessageAction $captureTelegramMessageAction,
     ) {}
@@ -39,6 +43,7 @@ class StartTelegramPostAction
         array $update,
         ?string $instruction = null,
         ?TelegramPostRequest $pendingRequest = null,
+        string $mode = TelegramPostRequest::MODE_POST,
     ): TelegramPostRequest {
         $message = $update['message'] ?? null;
         if (! is_array($message)
@@ -54,6 +59,15 @@ class StartTelegramPostAction
 
         [$category, $instruction] = PostCategories::splitLeading($instruction);
 
+        // "/card avatar <headline>" (the keyword before or after a category).
+        if ($mode === TelegramPostRequest::MODE_CARD && $this->startsWithAvatar($instruction)) {
+            $mode = TelegramPostRequest::MODE_CARD_AVATAR;
+            $instruction = $this->withoutFirstWord($instruction);
+            if ($category === null) {
+                [$category, $instruction] = PostCategories::splitLeading($instruction);
+            }
+        }
+
         return DB::transaction(function () use (
             $config,
             $link,
@@ -63,6 +77,7 @@ class StartTelegramPostAction
             $instruction,
             $category,
             $pendingRequest,
+            $mode,
         ): TelegramPostRequest {
             // Serialize one Telegram bot's post prompts. This prevents two
             // concurrent bare /post commands from stranding prompts or
@@ -187,6 +202,7 @@ class StartTelegramPostAction
                 'state' => TelegramPostRequest::AWAITING_INPUT,
                 'instruction' => null,
                 'category' => $category,
+                'mode' => $mode,
             ]);
 
             if ($entry === null) {
@@ -218,6 +234,20 @@ class StartTelegramPostAction
         });
     }
 
+    private function startsWithAvatar(?string $instruction): bool
+    {
+        $first = mb_strtolower(preg_split('/\s+/u', trim((string) $instruction))[0] ?? '');
+
+        return in_array($first, self::AVATAR_WORDS, true);
+    }
+
+    private function withoutFirstWord(?string $instruction): string
+    {
+        $parts = preg_split('/\s+/u', trim((string) $instruction), 2);
+
+        return trim($parts[1] ?? '');
+    }
+
     /**
      * @param  array<string, mixed>  $update
      * @return array<string, mixed>
@@ -243,7 +273,7 @@ class StartTelegramPostAction
     }
 
     /**
-     * Remove the command itself before passing a bare `/post` (optionally
+     * Remove the command itself before passing a bare `/post` or `/card` (optionally
      * followed by just a category word) to the normal capture action. Media
      * messages keep their photo/audio payload while the command caption is
      * removed; a text-only command becomes an empty update and therefore
@@ -263,10 +293,16 @@ class StartTelegramPostAction
         $commandText = $message['text'] ?? $message['caption'] ?? null;
 
         if (! is_string($commandText)
-            || preg_match('/^\/post(?:@[A-Za-z0-9_]+)?(?:\s+(\S+))?$/iu', trim($commandText), $matches) !== 1
-            || (isset($matches[1]) && PostCategories::fromAlias($matches[1]) === null)
+            || preg_match('/^\/(?:post|card)(?:@[A-Za-z0-9_]+)?((?:\s+\S+){0,2})$/iu', trim($commandText), $matches) !== 1
         ) {
             return $update;
+        }
+
+        // Only a category word and/or the avatar keyword may follow it.
+        foreach (preg_split('/\s+/u', trim($matches[1]), -1, PREG_SPLIT_NO_EMPTY) ?: [] as $word) {
+            if (PostCategories::fromAlias($word) === null && ! in_array(mb_strtolower($word), self::AVATAR_WORDS, true)) {
+                return $update;
+            }
         }
 
         if (isset($message['photo']) || isset($message['voice']) || isset($message['audio'])) {

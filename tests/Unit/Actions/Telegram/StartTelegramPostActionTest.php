@@ -260,4 +260,82 @@ class StartTelegramPostActionTest extends TestCase
         $this->assertSame('funny', $request->category);
         $this->assertSame('the office kettle broke again', $request->sourceEntry->body);
     }
+
+    public function test_a_card_command_starts_a_card_mode_request(): void
+    {
+        Queue::fake();
+        ['config' => $config, 'link' => $link] = $this->linkedBot();
+
+        $request = $this->action()->handle(
+            $config,
+            $link,
+            555,
+            42,
+            $this->update('/card funny অফিসের কেটলি আবার নষ্ট'),
+            'funny অফিসের কেটলি আবার নষ্ট',
+            mode: TelegramPostRequest::MODE_CARD,
+        );
+
+        $this->assertSame(TelegramPostRequest::MODE_CARD, $request->mode);
+        $this->assertSame('funny', $request->category);
+        $this->assertSame('অফিসের কেটলি আবার নষ্ট', $request->sourceEntry->body);
+    }
+
+    public function test_a_bare_card_command_waits_and_keeps_card_mode_for_the_follow_up(): void
+    {
+        Queue::fake();
+        ['config' => $config, 'link' => $link] = $this->linkedBot();
+        $action = $this->action();
+
+        $waiting = $action->handle($config, $link, 555, 42, $this->update('/card'), null, mode: TelegramPostRequest::MODE_CARD);
+
+        $this->assertSame(TelegramPostRequest::AWAITING_INPUT, $waiting->state);
+        $this->assertSame(0, ScratchpadEntry::count());
+
+        $source = $this->update('বিদ্যুৎ বিল বাড়ল');
+        $source['update_id'] = 2;
+        $request = $action->handle($config, $link, 555, 42, $source, null, $waiting);
+
+        $this->assertSame(TelegramPostRequest::MODE_CARD, $request->fresh()?->mode);
+        $this->assertSame('বিদ্যুৎ বিল বাড়ল', $request->sourceEntry->body);
+    }
+
+    public function test_a_post_command_defaults_to_post_mode(): void
+    {
+        Queue::fake();
+        ['config' => $config, 'link' => $link] = $this->linkedBot();
+
+        $request = $this->action()->handle($config, $link, 555, 42, $this->update('/post a funny thing happened'), 'a funny thing happened');
+
+        $this->assertSame(TelegramPostRequest::MODE_POST, $request->fresh()?->mode);
+    }
+
+    public function test_card_avatar_switches_to_avatar_mode_with_the_category_either_side(): void
+    {
+        Queue::fake();
+        ['config' => $config, 'link' => $link] = $this->linkedBot();
+
+        $before = $this->action()->handle($config, $link, 555, 42, $this->update('/card avatar recent পরীমনির বাসায় আগুন'), 'avatar recent পরীমনির বাসায় আগুন', mode: TelegramPostRequest::MODE_CARD);
+        $this->assertSame(TelegramPostRequest::MODE_CARD_AVATAR, $before->mode);
+        $this->assertSame('recent', $before->category);
+        $this->assertSame('পরীমনির বাসায় আগুন', $before->sourceEntry->body);
+
+        $update = $this->update('/card recent avatar শাকিবের নতুন সিনেমা');
+        $update['update_id'] = 2;
+        $after = $this->action()->handle($config, $link, 555, 42, $update, 'recent avatar শাকিবের নতুন সিনেমা', mode: TelegramPostRequest::MODE_CARD);
+        $this->assertSame(TelegramPostRequest::MODE_CARD_AVATAR, $after->mode);
+        $this->assertSame('recent', $after->category);
+        $this->assertSame('শাকিবের নতুন সিনেমা', $after->sourceEntry->body);
+    }
+
+    public function test_avatar_is_an_ordinary_word_for_post(): void
+    {
+        Queue::fake();
+        ['config' => $config, 'link' => $link] = $this->linkedBot();
+
+        $request = $this->action()->handle($config, $link, 555, 42, $this->update('/post avatar movie review'), 'avatar movie review');
+
+        $this->assertSame(TelegramPostRequest::MODE_POST, $request->fresh()?->mode);
+        $this->assertSame('avatar movie review', $request->sourceEntry->body);
+    }
 }

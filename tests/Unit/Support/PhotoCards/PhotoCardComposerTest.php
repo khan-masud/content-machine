@@ -3,6 +3,7 @@
 namespace Tests\Unit\Support\PhotoCards;
 
 use App\Models\Attachment;
+use App\Models\CardPerson;
 use App\Models\MediaAsset;
 use App\Models\Post;
 use App\Models\Workspace;
@@ -105,5 +106,38 @@ class PhotoCardComposerTest extends TestCase
 
         $this->assertSame(Storage::disk('scratchpad')->path('1/dark.png'), $composer->sample($workspace, 'techy')->logoPath);
         $this->assertSame(Storage::disk('scratchpad')->path('1/light.png'), $composer->sample($workspace, 'recent')->logoPath);
+    }
+
+    public function test_a_library_person_named_in_the_headline_becomes_the_avatar(): void
+    {
+        Storage::fake('scratchpad');
+        $workspace = Workspace::factory()->create();
+        Storage::disk('scratchpad')->put('1/pori.png', FakePhotoCardRenderer::png());
+        $media = MediaAsset::factory()->for($workspace)->create(['disk' => 'scratchpad', 'path' => '1/pori.png', 'mime' => 'image/png']);
+        CardPerson::factory()->for($workspace)->create(['name' => 'পরীমনি', 'aliases' => ['পরিমনি'], 'media_asset_id' => $media->id]);
+        $post = Post::factory()->for($workspace)->create(['photo_card' => ['headline' => 'পরিমনির বাসায় [[আগুন]]']]);
+
+        $card = (new PhotoCardComposer)->forPost($post);
+
+        $this->assertSame(Storage::disk('scratchpad')->path('1/pori.png'), $card->avatarPath);
+        $this->assertSame($card->avatarPath, $card->toRenderSpec()['avatar_path']);
+    }
+
+    public function test_the_cards_own_avatar_wins_and_false_turns_it_off(): void
+    {
+        Storage::fake('scratchpad');
+        $workspace = Workspace::factory()->create();
+        Storage::disk('scratchpad')->put('1/own.png', FakePhotoCardRenderer::png());
+        $own = MediaAsset::factory()->for($workspace)->create(['disk' => 'scratchpad', 'path' => '1/own.png', 'mime' => 'image/png']);
+        CardPerson::factory()->for($workspace)->create(['name' => 'পরীমনি']);
+
+        $withOwn = Post::factory()->for($workspace)->create(['photo_card' => ['headline' => 'পরীমনি', 'avatar_media_asset_id' => $own->id]]);
+        $off = Post::factory()->for($workspace)->create(['photo_card' => ['headline' => 'পরীমনি', 'avatar' => false]]);
+        $nobody = Post::factory()->for($workspace)->create(['photo_card' => ['headline' => 'বিদ্যুৎ বিল বাড়ল']]);
+
+        $composer = new PhotoCardComposer;
+        $this->assertSame(Storage::disk('scratchpad')->path('1/own.png'), $composer->forPost($withOwn)->avatarPath);
+        $this->assertNull($composer->forPost($off)->avatarPath);
+        $this->assertNull($composer->forPost($nobody)->avatarPath);
     }
 }

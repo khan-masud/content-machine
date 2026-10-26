@@ -156,6 +156,10 @@ const mainNavItems: NavItem[] = [
                 href: '/settings/brand',
             },
             {
+                title: 'Card people',
+                href: '/settings/card-people',
+            },
+            {
                 title: 'Pexels',
                 href: '/settings/pexels',
             },

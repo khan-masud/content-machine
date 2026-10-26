@@ -78,6 +78,8 @@ class HandleTelegramUpdateAction
         /note <text>: save a Scratch Pad note
         /post [category] <text>: create a draft, or send the next photo/voice/audio
         /approve P-123: approve a generated draft
+        /card [category] <text>: a photo card with exactly this headline
+        /card avatar <text> (photo caption): the photo becomes the card's avatar
         /recard P-123: new background and photo card for a draft
         /post_now P-123 (or /post-now P-123): publish an approved draft now
         /schedule P-123 YYYY-MM-DD HH:MM: schedule an approved draft
@@ -497,6 +499,7 @@ class HandleTelegramUpdateAction
             '/notes' => $this->reply($config, $chatId, $this->intentReply($config, $link, 'notes')),
             '/note' => $this->handleNote($config, $chatId, $args, $telegramUpdateKey, $update, $dispatchLeaseId),
             '/post' => $this->handlePost($config, $link, $chatId, $fromUserId, $args, $update, $dispatchLeaseId),
+            '/card' => $this->handlePost($config, $link, $chatId, $fromUserId, $args, $update, $dispatchLeaseId, TelegramPostRequest::MODE_CARD),
             '/approve' => $this->handleApprove($config, $link, $chatId, $fromUserId, $args, $update, $dispatchLeaseId),
             '/recard' => $this->handleRecard($config, $chatId, $fromUserId, $args, $update, $dispatchLeaseId),
             '/post_now' => $this->handlePostNow($config, $link, $chatId, $fromUserId, $args, $update, $dispatchLeaseId),
@@ -685,11 +688,12 @@ class HandleTelegramUpdateAction
         string $args,
         array $update,
         ?string $dispatchLeaseId = null,
+        string $mode = TelegramPostRequest::MODE_POST,
     ): void {
         // An empty string deliberately clears `/post` from a media caption or
         // text message before capture. With no media/text left, Start creates
         // the durable awaiting-input request instead.
-        DB::transaction(function () use ($config, $link, $chatId, $telegramUserId, $update, $args, $dispatchLeaseId): void {
+        DB::transaction(function () use ($config, $link, $chatId, $telegramUserId, $update, $args, $dispatchLeaseId, $mode): void {
             if ($dispatchLeaseId !== null
                 && ! $this->ownsDispatchLease($config, $update, $dispatchLeaseId)) {
                 return;
@@ -702,6 +706,7 @@ class HandleTelegramUpdateAction
                 $telegramUserId,
                 $update,
                 $args,
+                mode: $mode,
             );
 
             $this->reply($config, $chatId, $this->postStartReply($request));
@@ -710,8 +715,16 @@ class HandleTelegramUpdateAction
 
     private function postStartReply(TelegramPostRequest $request): string
     {
+        $card = $request->mode === TelegramPostRequest::MODE_CARD;
+
         if ($request->state === TelegramPostRequest::AWAITING_INPUT) {
-            return 'Send the text, photo, voice note, or audio file you want turned into a post. You can also use /cancel.';
+            return $card
+                ? 'Send the headline you want on the card, or a photo with the headline as its caption. You can also use /cancel.'
+                : 'Send the text, photo, voice note, or audio file you want turned into a post. You can also use /cancel.';
+        }
+
+        if ($card && $request->source_scratchpad_entry_id !== null) {
+            return '🎨 Got it. I\'m making the photo card with your headline. It arrives here in a minute.';
         }
 
         if ($request->source_scratchpad_entry_id !== null) {

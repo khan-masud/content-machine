@@ -19,6 +19,8 @@ HEADLINE_TOP = 230
 MAX_HEADLINE_LINES = 4
 LOGO_MAX_HEIGHT = 72
 LOGO_MAX_WIDTH = 300
+AVATAR_SIZE = 330
+AVATAR_RING = 10
 
 
 def hex_rgb(value):
@@ -88,6 +90,38 @@ def paste_logo(canvas, path, right, top):
     canvas.paste(logo, (right - logo.width, top), logo)
 
 
+def paste_avatar(canvas, path, left, top, ring_color):
+    """A round photo with an accent ring and a thin white edge.
+
+    The crop leans towards the top of the photo, where faces usually are.
+    """
+    source = Image.open(path)
+    source.draft("RGB", (AVATAR_SIZE * 2, AVATAR_SIZE * 2))
+    photo = source.convert("RGB")
+    side = min(photo.width, photo.height)
+    crop_left = (photo.width - side) // 2
+    crop_top = round((photo.height - side) * 0.2)
+    photo = photo.crop((crop_left, crop_top, crop_left + side, crop_top + side))
+    photo = photo.resize((AVATAR_SIZE, AVATAR_SIZE), Image.LANCZOS)
+
+    # Draw the circles 4x larger and scale down for smooth edges.
+    outer = AVATAR_SIZE + 2 * (AVATAR_RING + 4)
+    scale = 4
+    ring = Image.new("L", (outer * scale, outer * scale), 0)
+    ImageDraw.Draw(ring).ellipse([0, 0, outer * scale - 1, outer * scale - 1], fill=255)
+    ring = ring.resize((outer, outer), Image.LANCZOS)
+    inner = Image.new("L", ((AVATAR_SIZE + 2 * AVATAR_RING) * scale,) * 2, 0)
+    ImageDraw.Draw(inner).ellipse([0, 0, inner.width - 1, inner.height - 1], fill=255)
+    inner = inner.resize((AVATAR_SIZE + 2 * AVATAR_RING,) * 2, Image.LANCZOS)
+    face = Image.new("L", (AVATAR_SIZE * scale,) * 2, 0)
+    ImageDraw.Draw(face).ellipse([0, 0, face.width - 1, face.height - 1], fill=255)
+    face = face.resize((AVATAR_SIZE, AVATAR_SIZE), Image.LANCZOS)
+
+    canvas.paste((255, 255, 255), (left, top), ring)
+    canvas.paste(ring_color, (left + 4, top + 4), inner)
+    canvas.paste(photo, (left + 4 + AVATAR_RING, top + 4 + AVATAR_RING), face)
+
+
 def render(spec):
     width, height = spec["width"], spec["height"]
     colors = {key: hex_rgb(value) for key, value in spec["colors"].items()}
@@ -151,6 +185,11 @@ def render(spec):
         # A short accent rule keeps a text-only card from looking empty.
         rule_y = height - 150
         draw.rounded_rectangle([width / 2 - 60, rule_y, width / 2 + 60, rule_y + 8], radius=4, fill=colors["accent"])
+
+    # A person's photo, bottom left, clear of the headline and the credit label.
+    if spec.get("avatar_path"):
+        outer = AVATAR_SIZE + 2 * (AVATAR_RING + 4)
+        paste_avatar(canvas, spec["avatar_path"], GUTTER - 16, height - outer - 72, colors["accent"])
 
     # Image credit label, readable on any photo thanks to a soft shadow.
     if background and spec.get("image_label"):
